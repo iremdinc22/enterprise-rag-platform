@@ -2,6 +2,7 @@ from pathlib import Path
 
 from src.ingestion.pdf_parser import parse_pdf
 from src.ingestion.chunker import chunk_text
+from src.ingestion.embedder import create_embeddings
 
 
 def ingest_document(
@@ -12,8 +13,10 @@ def ingest_document(
 ):
     file_path = Path(file_path)
 
+    # 1. Parse PDF
     pages = parse_pdf(file_path)
 
+    # 2. Create chunk records
     chunk_records = []
     chunk_number = 1
 
@@ -34,5 +37,17 @@ def ingest_document(
             })
 
             chunk_number += 1
+
+    # 3. Create embeddings in batch
+    texts = [
+        record["text"]
+        for record in chunk_records
+    ]
+
+    embeddings = create_embeddings(texts)
+
+    # 4. Attach each embedding to its chunk
+    for record, embedding in zip(chunk_records, embeddings):
+        record["embedding"] = embedding
 
     return chunk_records

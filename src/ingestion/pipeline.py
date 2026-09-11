@@ -3,6 +3,7 @@ from pathlib import Path
 from src.ingestion.pdf_parser import parse_pdf
 from src.ingestion.chunker import chunk_text
 from src.ingestion.embedder import create_embeddings
+from src.vector_store.qdrant_store import create_collection, upsert_chunks
 
 
 def ingest_document(
@@ -46,8 +47,12 @@ def ingest_document(
 
     embeddings = create_embeddings(texts)
 
-    # 4. Attach each embedding to its chunk
+    # 4. Attach embeddings to chunks
     for record, embedding in zip(chunk_records, embeddings):
         record["embedding"] = embedding
+
+    # 5. Store chunks in Qdrant
+    create_collection()
+    upsert_chunks(chunk_records)
 
     return chunk_records

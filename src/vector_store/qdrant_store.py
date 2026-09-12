@@ -1,4 +1,4 @@
-from qdrant_client import QdrantClient
+from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import (
     Distance,
     VectorParams,
@@ -11,16 +11,16 @@ COLLECTION_NAME = "enterprise_documents"
 EMBEDDING_DIMENSION = 1536
 
 
-client = QdrantClient(
+client = AsyncQdrantClient(
     url=QDRANT_URL
 )
 
 
-def create_collection():
-    if client.collection_exists(COLLECTION_NAME):
+async def create_collection():
+    if await client.collection_exists(COLLECTION_NAME):
         return
 
-    client.create_collection(
+    await client.create_collection(
         collection_name=COLLECTION_NAME,
         vectors_config=VectorParams(
             size=EMBEDDING_DIMENSION,
@@ -29,7 +29,7 @@ def create_collection():
     )
 
 
-def upsert_chunks(chunk_records):
+async def upsert_chunks(chunk_records):
     points = []
 
     for index, record in enumerate(chunk_records, start=1):
@@ -47,22 +47,22 @@ def upsert_chunks(chunk_records):
 
         points.append(point)
 
-    client.upsert(
+    await client.upsert(
         collection_name=COLLECTION_NAME,
         points=points,
         wait=True
     )
 
 
-def search_chunks(
+async def search_chunks(
     query_vector,
     limit=3
 ):
-    results = client.query_points(
+    results = await client.query_points(
         collection_name=COLLECTION_NAME,
         query=query_vector,
         with_payload=True,
         limit=limit
-    ).points
+    )
 
-    return results
+    return results.points

@@ -1,24 +1,24 @@
 import os
 
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 
 load_dotenv()
 
-client = OpenAI(
+client = AsyncOpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
 
 
-def create_embedding(
+async def create_embedding(
     text,
     model="text-embedding-3-small"
 ):
     if not text or not text.strip():
         raise ValueError("text cannot be empty")
 
-    response = client.embeddings.create(
+    response = await client.embeddings.create(
         model=model,
         input=text
     )
@@ -26,7 +26,7 @@ def create_embedding(
     return response.data[0].embedding
 
 
-def create_embeddings(
+async def create_embeddings(
     texts,
     model="text-embedding-3-small"
 ):
@@ -36,7 +36,7 @@ def create_embeddings(
     if any(not text or not text.strip() for text in texts):
         raise ValueError("texts cannot contain empty values")
 
-    response = client.embeddings.create(
+    response = await client.embeddings.create(
         model=model,
         input=texts
     )

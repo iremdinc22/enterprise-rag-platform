@@ -6,7 +6,7 @@ from src.ingestion.embedder import create_embeddings
 from src.vector_store.qdrant_store import create_collection, upsert_chunks
 
 
-def ingest_document(
+async def ingest_document(
     file_path,
     document_id,
     chunk_size=40,
@@ -45,14 +45,14 @@ def ingest_document(
         for record in chunk_records
     ]
 
-    embeddings = create_embeddings(texts)
+    embeddings = await create_embeddings(texts)
 
     # 4. Attach embeddings to chunks
     for record, embedding in zip(chunk_records, embeddings):
         record["embedding"] = embedding
 
     # 5. Store chunks in Qdrant
-    create_collection()
-    upsert_chunks(chunk_records)
+    await create_collection()
+    await upsert_chunks(chunk_records)
 
     return chunk_records

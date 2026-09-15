@@ -1,8 +1,14 @@
+from uuid import uuid5, NAMESPACE_URL
+
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import (
     Distance,
     VectorParams,
-    PointStruct
+    PointStruct,
+    Filter,
+    FieldCondition,
+    MatchValue,
+    FilterSelector
 )
 
 
@@ -29,12 +35,38 @@ async def create_collection():
     )
 
 
+async def delete_document_chunks(document_id):
+    await client.delete(
+        collection_name=COLLECTION_NAME,
+        points_selector=FilterSelector(
+            filter=Filter(
+                must=[
+                    FieldCondition(
+                        key="document_id",
+                        match=MatchValue(
+                            value=document_id
+                        )
+                    )
+                ]
+            )
+        ),
+        wait=True
+    )
+
+
 async def upsert_chunks(chunk_records):
     points = []
 
-    for index, record in enumerate(chunk_records, start=1):
+    for record in chunk_records:
+        point_id = str(
+            uuid5(
+                NAMESPACE_URL,
+                f"{record['document_id']}:{record['chunk_id']}"
+            )
+        )
+
         point = PointStruct(
-            id=index,
+            id=point_id,
             vector=record["embedding"],
             payload={
                 "chunk_id": record["chunk_id"],

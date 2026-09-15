@@ -3,7 +3,11 @@ from pathlib import Path
 from src.ingestion.pdf_parser import parse_pdf
 from src.ingestion.chunker import chunk_text
 from src.ingestion.embedder import create_embeddings
-from src.vector_store.qdrant_store import create_collection, upsert_chunks
+from src.vector_store.qdrant_store import (
+    create_collection,
+    delete_document_chunks,
+    upsert_chunks
+)
 
 
 async def ingest_document(
@@ -51,8 +55,13 @@ async def ingest_document(
     for record, embedding in zip(chunk_records, embeddings):
         record["embedding"] = embedding
 
-    # 5. Store chunks in Qdrant
+    # 5. Ensure the Qdrant collection exists
     await create_collection()
+
+    # 6. Remove the previous version of this document
+    await delete_document_chunks(document_id)
+
+    # 7. Store the new version in Qdrant
     await upsert_chunks(chunk_records)
 
     return chunk_records

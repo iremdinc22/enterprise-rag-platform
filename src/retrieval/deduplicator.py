@@ -12,22 +12,43 @@ def normalize_text(text):
     )
 
 
+def build_source(candidate):
+    return {
+        "document_id": candidate["document_id"],
+        "filename": candidate["filename"],
+        "page": candidate["page"],
+        "chunk_id": candidate["chunk_id"]
+    }
+
+
 def deduplicate_exact(candidates):
     if not candidates:
         return []
 
-    seen_texts = set()
     unique_candidates = []
+    candidates_by_text = {}
 
     for candidate in candidates:
-        normalized_text = normalize_text(
-            candidate["text"]
-        )
+        normalized_text = normalize_text(candidate["text"])
+        source = build_source(candidate)
 
-        if normalized_text in seen_texts:
+        if normalized_text in candidates_by_text:
+            existing_candidate = candidates_by_text[
+                normalized_text
+            ]
+
+            existing_candidate["sources"].append(source)
             continue
 
-        seen_texts.add(normalized_text)
-        unique_candidates.append(candidate)
+        unique_candidate = {
+            **candidate,
+            "sources": [source]
+        }
+
+        candidates_by_text[normalized_text] = (
+            unique_candidate
+        )
+
+        unique_candidates.append(unique_candidate)
 
     return unique_candidates

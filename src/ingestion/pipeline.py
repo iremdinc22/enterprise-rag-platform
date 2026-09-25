@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from src.cache.result_cache import invalidate_tenant_results
 from src.ingestion.pdf_parser import parse_pdf
 from src.ingestion.chunker import chunk_text
 from src.ingestion.embedder import create_embeddings
@@ -71,5 +72,10 @@ async def ingest_document(
 
     # 7. Store the new version in Qdrant
     await upsert_chunks(chunk_records)
+
+    # 8. Invalidate stale RAG results for this tenant
+    invalidate_tenant_results(
+        tenant_id=tenant_id
+    )
 
     return chunk_records

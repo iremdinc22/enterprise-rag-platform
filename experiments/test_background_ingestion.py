@@ -10,16 +10,19 @@ pdf_path = project_root / "data" / "employee-handbook.pdf"
 
 job_id = str(uuid4())
 
+tenant_id = "acme"
+document_id = "second-document"
+
 create_job(
     job_id=job_id,
-    document_id="second-document"
+    document_id=document_id
 )
 
 ingest_document_task.apply_async(
     args=[
         str(pdf_path),
-        "second-document"
-
+        document_id,
+        tenant_id
     ],
     task_id=job_id
 )

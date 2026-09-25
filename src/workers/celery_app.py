@@ -13,7 +13,12 @@ celery_app = Celery(
 
 
 @celery_app.task(bind=True, max_retries=3)
-def ingest_document_task(self, file_path, document_id):
+def ingest_document_task(
+    self,
+    file_path,
+    document_id,
+    tenant_id
+):
     job_id = self.request.id
 
     update_job_status(job_id, "processing")
@@ -23,6 +28,7 @@ def ingest_document_task(self, file_path, document_id):
             ingest_document(
                 file_path=file_path,
                 document_id=document_id,
+                tenant_id=tenant_id,
                 chunk_size=40,
                 chunk_overlap=8
             )

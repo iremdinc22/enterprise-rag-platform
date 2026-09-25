@@ -1,4 +1,8 @@
 from src.auth.models import UserContext
+from src.cache.result_cache import (
+    cache_result,
+    get_cached_result
+)
 from src.citations.citation_builder import (
     build_citations,
     build_citation_response
@@ -16,6 +20,21 @@ async def run_rag(
     final_limit=3,
     lambda_value=0.5
 ):
+    cached_result = get_cached_result(
+        tenant_id=user_context.tenant_id,
+        query=query,
+        model=model,
+        retrieval_limit=retrieval_limit,
+        final_limit=final_limit,
+        lambda_value=lambda_value
+    )
+
+    if cached_result is not None:
+        print("RAG result cache: HIT")
+        return cached_result
+
+    print("RAG result cache: MISS")
+
     contexts = await select_context(
         query=query,
         tenant_id=user_context.tenant_id,
@@ -50,7 +69,19 @@ async def run_rag(
             in generation.citation_ids
         ]
 
-    return {
+    result = {
         "answer": generation.answer,
         "citations": citation_response
     }
+
+    cache_result(
+        tenant_id=user_context.tenant_id,
+        query=query,
+        model=model,
+        retrieval_limit=retrieval_limit,
+        final_limit=final_limit,
+        lambda_value=lambda_value,
+        result=result
+    )
+
+    return result

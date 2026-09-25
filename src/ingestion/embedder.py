@@ -3,6 +3,11 @@ import os
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
+from src.cache.embedding_cache import (
+    cache_embedding,
+    get_cached_embedding
+)
+
 
 load_dotenv()
 
@@ -11,19 +16,35 @@ client = AsyncOpenAI(
 )
 
 
-async def create_embedding(
-    text,
-    model="text-embedding-3-small"
-):
+async def create_embedding(text, model="text-embedding-3-small"):
     if not text or not text.strip():
         raise ValueError("text cannot be empty")
+
+    cached_embedding = get_cached_embedding(
+        text=text,
+        model=model
+    )
+
+    if cached_embedding is not None:
+        print("Embedding cache: HIT")
+        return cached_embedding
+
+    print("Embedding cache: MISS")
 
     response = await client.embeddings.create(
         model=model,
         input=text
     )
 
-    return response.data[0].embedding
+    embedding = response.data[0].embedding
+
+    cache_embedding(
+        text=text,
+        model=model,
+        embedding=embedding
+    )
+
+    return embedding
 
 
 async def create_embeddings(

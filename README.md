@@ -4,7 +4,7 @@ A production-oriented **Retrieval-Augmented Generation (RAG)** platform designed
 
 The platform combines document ingestion, hybrid retrieval, reranking, diversity-aware context selection, grounded generation, citations, authentication, and tenant-aware retrieval into an explicit and testable pipeline.
 
-> **Status:** Active development — the core RAG pipeline, authentication, and multi-tenant retrieval isolation are implemented. Caching, evaluation, observability, and production API layers are next.
+> **Status:** Active development — the core RAG pipeline, authentication, multi-tenant retrieval isolation, and Redis caching are implemented. Resilience, evaluation, observability, and production API layers are next.
 
 ---
 
@@ -27,6 +27,13 @@ The platform combines document ingestion, hybrid retrieval, reranking, diversity
                               User Query
                                     │
                                     ▼
+                         ┌─────────────────────┐
+                         │  RAG Result Cache   │
+                         │ tenant + config key │
+                         └──────────┬──────────┘
+                              HIT   │   MISS
+                         Answer ◄───┘     │
+                                         ▼
                  ┌─────────────────────────────────┐
                  │      Tenant-Aware Retrieval     │
                  │                                 │
@@ -68,6 +75,8 @@ Chunk + Metadata
 Batch Embedding
  ↓
 Qdrant
+ ↓
+Invalidate Tenant Result Cache
 ```
 
 Ingestion can also run asynchronously:
@@ -289,6 +298,81 @@ Filtering occurs **before or during retrieval**, rather than retrieving globally
 
 This means another tenant's documents never enter RRF, reranking, context selection, or generation.
 
+## Redis Caching
+
+Redis caching is used as a performance layer without weakening tenant isolation or retrieval correctness.
+
+Two cache levels are currently implemented:
+
+```text
+User Query
+    ↓
+RAG Result Cache
+ ├── HIT → Answer + Citations
+ └── MISS
+       ↓
+   Retrieval
+       ↓
+   Query Embedding
+       ↓
+   Embedding Cache
+    ├── HIT
+    └── MISS → OpenAI Embeddings
+       ↓
+ BM25 + Vector → RRF → Rerank → MMR → Generation
+       ↓
+ Cache Result
+```
+
+### Embedding Cache
+
+Single-query embeddings are cached using a deterministic identity:
+
+```text
+embedding:<model>:<sha256(text)>
+```
+
+The tenant identifier is intentionally not part of this key because the embedding is determined by the input text and embedding model, not by the tenant that requested it.
+
+### Tenant-Aware RAG Result Cache
+
+Final RAG results are cached using an identity derived from:
+
+- tenant identifier,
+- query,
+- generation model,
+- retrieval limit,
+- final context limit,
+- MMR lambda value.
+
+```text
+rag-result:<tenant_id>:<config-and-query-hash>
+```
+
+Including the tenant in the key prevents a cached result from one tenant from being returned to another tenant before retrieval filters have a chance to run.
+
+Cached values use TTLs to limit their lifetime, but TTL alone is not sufficient when indexed documents change.
+
+### Cache Invalidation
+
+After a document is successfully re-ingested and the new chunks are stored in Qdrant, cached RAG results for that tenant are invalidated:
+
+```text
+Document Re-Ingestion
+        ↓
+Qdrant Updated
+        ↓
+Invalidate rag-result:<tenant_id>:*
+        ↓
+Next Query → Cache MISS
+        ↓
+RAG recomputes from current documents
+```
+
+Invalidation is tenant-scoped: updating an ACME document removes ACME RAG result entries without removing GLOBEX results or reusable embedding-cache entries.
+
+---
+
 ### Isolation Example
 
 The test dataset contains the same logical policy under two tenants:
@@ -335,7 +419,8 @@ The ingestion pipeline currently supports:
 - tenant-aware vector storage,
 - stable UUID-based identifiers,
 - idempotent document re-ingestion,
-- stale chunk removal.
+- stale chunk removal,
+- tenant-scoped RAG result cache invalidation after successful re-ingestion.
 
 Long-running ingestion can be moved to **Celery workers** using Redis as the broker.
 
@@ -363,6 +448,11 @@ Hybrid + RRF Isolation          ✓
 Context Selection Isolation     ✓
 End-to-End RAG Isolation        ✓
 Cross-Tenant Leakage Test       ✓
+Redis Cache HIT / MISS            ✓
+Embedding Cache                   ✓
+Tenant-Aware Result Cache         ✓
+Tenant-Scoped Cache Invalidation  ✓
+Ingestion-Triggered Invalidation  ✓
 ```
 
 Experiments are also used to inspect BM25 behavior, lexical vs semantic retrieval, RRF contributions, reranker scores, MMR selection, and citation provenance.
@@ -384,7 +474,7 @@ Experiments are also used to inspect BM25 behavior, lexical vs semantic retrieva
 | Authentication | JWT / PyJWT |
 | Validation | Pydantic |
 | Background Processing | Celery |
-| Broker / Job Store | Redis |
+| Broker / Job Store / Cache | Redis |
 | PDF Processing | pypdf |
 | Infrastructure | Docker |
 
@@ -410,6 +500,9 @@ JWT authentication · typed user context · role-based authorization · tenant-a
 **Processing**  
 Celery background workers · Redis job tracking · retry handling
 
+**Caching**  
+Redis embedding cache · tenant-aware RAG result cache · TTL · configuration-aware cache keys · tenant-scoped invalidation · ingestion-triggered invalidation
+
 ---
 
 ## Roadmap
@@ -423,9 +516,9 @@ Citations & Provenance      █████████████████�
 Grounded Generation         ████████████████████  Implemented
 Authentication              ████████████████████  Implemented
 Multi-Tenant RAG            ████████████████████  Implemented
+Caching                     ████████████████████  Implemented
 
-Caching                     ░░░░░░░░░░░░░░░░░░░░  Next
-Resilience                  ░░░░░░░░░░░░░░░░░░░░
+Resilience                  ░░░░░░░░░░░░░░░░░░░░  Next
 Evaluation                  ░░░░░░░░░░░░░░░░░░░░
 Observability               ░░░░░░░░░░░░░░░░░░░░
 Latency & Cost Tracking     ░░░░░░░░░░░░░░░░░░░░

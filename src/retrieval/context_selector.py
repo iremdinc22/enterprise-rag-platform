@@ -7,12 +7,16 @@ from src.retrieval.reranker import rerank
 
 async def select_context(
     query,
+    tenant_id,
     retrieval_limit=5,
     final_limit=3,
     lambda_value=0.5
 ):
     if not query or not query.strip():
         raise ValueError("query cannot be empty")
+
+    if not tenant_id or not tenant_id.strip():
+        raise ValueError("tenant_id cannot be empty")
 
     if retrieval_limit <= 0:
         raise ValueError(
@@ -29,9 +33,10 @@ async def select_context(
             "final_limit cannot be greater than retrieval_limit"
         )
 
-    # Retrieve candidates using lexical + semantic search
+    # Retrieve tenant-scoped candidates using lexical + semantic search
     hybrid_results = await hybrid_search(
         query=query,
+        tenant_id=tenant_id,
         retrieval_limit=retrieval_limit,
         final_limit=retrieval_limit
     )

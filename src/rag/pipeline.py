@@ -1,3 +1,4 @@
+from src.auth.models import UserContext
 from src.citations.citation_builder import (
     build_citations,
     build_citation_response
@@ -10,12 +11,14 @@ from src.retrieval.context_selector import select_context
 async def run_rag(
     query,
     model,
+    user_context: UserContext,
     retrieval_limit=5,
     final_limit=3,
     lambda_value=0.5
 ):
     contexts = await select_context(
         query=query,
+        tenant_id=user_context.tenant_id,
         retrieval_limit=retrieval_limit,
         final_limit=final_limit,
         lambda_value=lambda_value
@@ -43,7 +46,8 @@ async def run_rag(
         citation_response = [
             citation
             for citation in citation_response
-            if citation["citation_id"] in generation.citation_ids
+            if citation["citation_id"]
+            in generation.citation_ids
         ]
 
     return {

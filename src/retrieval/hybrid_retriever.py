@@ -2,6 +2,7 @@ from src.ingestion.embedder import create_embedding
 from src.retrieval.bm25_retriever import search_bm25
 from src.vector_store.qdrant_store import search_chunks
 
+
 def reciprocal_rank_fusion(
     bm25_results,
     vector_results,
@@ -20,6 +21,7 @@ def reciprocal_rank_fusion(
             fused_results[point_id] = {
                 "point_id": point_id,
                 "document_id": result["document_id"],
+                "tenant_id": result["tenant_id"],
                 "chunk_id": result["chunk_id"],
                 "filename": result["filename"],
                 "page": result["page"],
@@ -32,7 +34,9 @@ def reciprocal_rank_fusion(
             }
 
         fused_results[point_id]["bm25_rank"] = rank
-        fused_results[point_id]["bm25_score"] = result["score"]
+        fused_results[point_id]["bm25_score"] = (
+            result["score"]
+        )
         fused_results[point_id]["rrf_score"] += (
             1 / (k + rank)
         )
@@ -49,6 +53,7 @@ def reciprocal_rank_fusion(
             fused_results[point_id] = {
                 "point_id": point_id,
                 "document_id": payload["document_id"],
+                "tenant_id": payload["tenant_id"],
                 "chunk_id": payload["chunk_id"],
                 "filename": payload["filename"],
                 "page": payload["page"],
@@ -79,19 +84,24 @@ def reciprocal_rank_fusion(
 
 async def hybrid_search(
     query,
+    tenant_id,
     retrieval_limit=5,
     final_limit=3,
     rrf_k=60
 ):
     bm25_results = await search_bm25(
         query=query,
+        tenant_id=tenant_id,
         limit=retrieval_limit
     )
 
-    query_embedding = await create_embedding(query)
+    query_embedding = await create_embedding(
+        query
+    )
 
     vector_results = await search_chunks(
         query_vector=query_embedding,
+        tenant_id=tenant_id,
         limit=retrieval_limit
     )
 

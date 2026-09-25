@@ -13,6 +13,7 @@ from src.vector_store.qdrant_store import (
 async def ingest_document(
     file_path,
     document_id,
+    tenant_id,
     chunk_size=40,
     chunk_overlap=8
 ):
@@ -21,7 +22,7 @@ async def ingest_document(
     # 1. Parse PDF
     pages = parse_pdf(file_path)
 
-    # 2. Create chunk records
+    # 2. Create tenant-aware chunk records
     chunk_records = []
     chunk_number = 1
 
@@ -36,6 +37,7 @@ async def ingest_document(
             chunk_records.append({
                 "chunk_id": f"chunk-{chunk_number:03d}",
                 "document_id": document_id,
+                "tenant_id": tenant_id,
                 "filename": file_path.name,
                 "page": page["page"],
                 "text": chunk
@@ -52,14 +54,20 @@ async def ingest_document(
     embeddings = await create_embeddings(texts)
 
     # 4. Attach embeddings to chunks
-    for record, embedding in zip(chunk_records, embeddings):
+    for record, embedding in zip(
+        chunk_records,
+        embeddings
+    ):
         record["embedding"] = embedding
 
     # 5. Ensure the Qdrant collection exists
     await create_collection()
 
-    # 6. Remove the previous version of this document
-    await delete_document_chunks(document_id)
+    # 6. Remove only this tenant's previous document version
+    await delete_document_chunks(
+        document_id=document_id,
+        tenant_id=tenant_id
+    )
 
     # 7. Store the new version in Qdrant
     await upsert_chunks(chunk_records)

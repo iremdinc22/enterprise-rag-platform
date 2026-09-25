@@ -35,12 +35,21 @@ async def create_collection():
     )
 
 
-async def delete_document_chunks(document_id):
+async def delete_document_chunks(
+    document_id,
+    tenant_id
+):
     await client.delete(
         collection_name=COLLECTION_NAME,
         points_selector=FilterSelector(
             filter=Filter(
                 must=[
+                    FieldCondition(
+                        key="tenant_id",
+                        match=MatchValue(
+                            value=tenant_id
+                        )
+                    ),
                     FieldCondition(
                         key="document_id",
                         match=MatchValue(
@@ -61,7 +70,11 @@ async def upsert_chunks(chunk_records):
         point_id = str(
             uuid5(
                 NAMESPACE_URL,
-                f"{record['document_id']}:{record['chunk_id']}"
+                (
+                    f"{record['tenant_id']}:"
+                    f"{record['document_id']}:"
+                    f"{record['chunk_id']}"
+                )
             )
         )
 
@@ -71,6 +84,7 @@ async def upsert_chunks(chunk_records):
             payload={
                 "chunk_id": record["chunk_id"],
                 "document_id": record["document_id"],
+                "tenant_id": record["tenant_id"],
                 "filename": record["filename"],
                 "page": record["page"],
                 "text": record["text"]
@@ -88,11 +102,22 @@ async def upsert_chunks(chunk_records):
 
 async def search_chunks(
     query_vector,
+    tenant_id,
     limit=3
 ):
     results = await client.query_points(
         collection_name=COLLECTION_NAME,
         query=query_vector,
+        query_filter=Filter(
+            must=[
+                FieldCondition(
+                    key="tenant_id",
+                    match=MatchValue(
+                        value=tenant_id
+                    )
+                )
+            ]
+        ),
         with_payload=True,
         limit=limit
     )

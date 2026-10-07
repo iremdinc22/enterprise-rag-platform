@@ -18,7 +18,8 @@ EMBEDDING_DIMENSION = 1536
 
 
 client = AsyncQdrantClient(
-    url=QDRANT_URL
+    url=QDRANT_URL,
+    timeout=10
 )
 
 

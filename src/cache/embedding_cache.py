@@ -2,6 +2,7 @@ import hashlib
 import json
 
 import redis
+from redis.exceptions import RedisError
 
 
 redis_client = redis.Redis(
@@ -39,7 +40,12 @@ def get_cached_embedding(
         model=model
     )
 
-    cached_value = redis_client.get(key)
+    try:
+        cached_value = redis_client.get(key)
+
+    except RedisError as error:
+        print(f"Embedding cache unavailable: {error}")
+        return None
 
     if cached_value is None:
         return None
@@ -57,8 +63,12 @@ def cache_embedding(
         model=model
     )
 
-    redis_client.set(
-        key,
-        json.dumps(embedding),
-        ex=EMBEDDING_CACHE_TTL
-    )
+    try:
+        redis_client.set(
+            key,
+            json.dumps(embedding),
+            ex=EMBEDDING_CACHE_TTL
+        )
+
+    except RedisError as error:
+        print(f"Embedding cache write skipped: {error}")

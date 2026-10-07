@@ -2,6 +2,7 @@ import hashlib
 import json
 
 import redis
+from redis.exceptions import RedisError
 
 
 redis_client = redis.Redis(
@@ -64,7 +65,12 @@ def get_cached_result(
         lambda_value=lambda_value
     )
 
-    cached_value = redis_client.get(key)
+    try:
+        cached_value = redis_client.get(key)
+
+    except RedisError as error:
+        print(f"Result cache unavailable: {error}")
+        return None
 
     if cached_value is None:
         return None
@@ -90,11 +96,15 @@ def cache_result(
         lambda_value=lambda_value
     )
 
-    redis_client.set(
-        key,
-        json.dumps(result),
-        ex=RESULT_CACHE_TTL
-    )
+    try:
+        redis_client.set(
+            key,
+            json.dumps(result),
+            ex=RESULT_CACHE_TTL
+        )
+
+    except RedisError as error:
+        print(f"Result cache write skipped: {error}")
 
 
 def invalidate_tenant_results(tenant_id):
@@ -102,7 +112,12 @@ def invalidate_tenant_results(tenant_id):
 
     deleted_count = 0
 
-    for key in redis_client.scan_iter(match=pattern):
-        deleted_count += redis_client.delete(key)
+    try:
+        for key in redis_client.scan_iter(match=pattern):
+            deleted_count += redis_client.delete(key)
+
+    except RedisError as error:
+        print(f"Result cache invalidation skipped: {error}")
+        return 0
 
     return deleted_count

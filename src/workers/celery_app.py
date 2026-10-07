@@ -1,6 +1,10 @@
 import asyncio
+import random
 
+import httpx
+import openai
 from celery import Celery
+from qdrant_client.http.exceptions import ResponseHandlingException
 
 from src.ingestion.pipeline import ingest_document
 from src.jobs.job_store import update_job_status
@@ -12,6 +16,25 @@ celery_app = Celery(
 )
 
 
+RETRYABLE_EXCEPTIONS = (
+    openai.APIConnectionError,
+    openai.RateLimitError,
+    httpx.ConnectError,
+    httpx.TimeoutException,
+    ResponseHandlingException,
+)
+
+
+def is_retryable_error(error):
+    if isinstance(error, RETRYABLE_EXCEPTIONS):
+        return True
+
+    if isinstance(error, openai.APIStatusError):
+        return error.status_code >= 500
+
+    return False
+
+
 @celery_app.task(bind=True, max_retries=3)
 def ingest_document_task(
     self,
@@ -21,7 +44,10 @@ def ingest_document_task(
 ):
     job_id = self.request.id
 
-    update_job_status(job_id, "processing")
+    update_job_status(
+        job_id,
+        "processing"
+    )
 
     try:
         asyncio.run(
@@ -34,7 +60,10 @@ def ingest_document_task(
             )
         )
 
-        update_job_status(job_id, "completed")
+        update_job_status(
+            job_id,
+            "completed"
+        )
 
         return f"{document_id}: ingestion completed"
 
@@ -46,22 +75,37 @@ def ingest_document_task(
         )
         raise
 
-    except ConnectionError as error:
+    except Exception as error:
+        if not is_retryable_error(error):
+            update_job_status(
+                job_id,
+                "failed",
+                error=str(error)
+            )
+            raise
+
+        # No retries remaining
+        if self.request.retries >= self.max_retries:
+            update_job_status(
+                job_id,
+                "failed",
+                error=str(error)
+            )
+            raise
+
+        # The task will be retried
         update_job_status(
             job_id,
             "retrying",
             error=str(error)
         )
 
+        # Exponential backoff + jitter
+        base_delay = 2 ** self.request.retries
+        jitter = random.uniform(0, 1)
+        delay = base_delay + jitter
+
         raise self.retry(
             exc=error,
-            countdown=2
+            countdown=delay
         )
-
-    except Exception as error:
-        update_job_status(
-            job_id,
-            "failed",
-            error=str(error)
-        )
-        raise

@@ -12,7 +12,9 @@ from src.cache.embedding_cache import (
 load_dotenv()
 
 client = AsyncOpenAI(
-    api_key=os.getenv("OPENAI_API_KEY")
+    api_key=os.getenv("OPENAI_API_KEY"),
+    timeout=20.0,
+    max_retries=1
 )
 
 

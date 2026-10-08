@@ -1,0 +1,197 @@
+
+[
+  {
+    "id": "retrieval-001",
+    "tenant_id": "acme",
+    "query": "What is the remote work allowance?",
+    "relevant_chunk_ids": [
+      "remote-work-policy:chunk-001"
+    ]
+  },
+  {
+    "id": "retrieval-002",
+    "tenant_id": "globex",
+    "query": "What is the remote work allowance?",
+    "relevant_chunk_ids": [
+      "remote-work-policy:chunk-001"
+    ]
+  },
+  {
+    "id": "retrieval-003",
+    "tenant_id": "acme",
+    "query": "How many days of annual leave do ACME employees receive?",
+    "relevant_chunk_ids": [
+      "employee-handbook:chunk-001"
+    ]
+  },
+  {
+    "id": "retrieval-004",
+    "tenant_id": "globex",
+    "query": "How many days of annual leave do GLOBEX employees receive?",
+    "relevant_chunk_ids": [
+      "employee-handbook:chunk-001"
+    ]
+  },
+  {
+    "id": "retrieval-005",
+    "tenant_id": "acme",
+    "query": "How many days per week can ACME employees work remotely?",
+    "relevant_chunk_ids": [
+      "employee-handbook:chunk-002"
+    ]
+  },
+  {
+    "id": "retrieval-006",
+    "tenant_id": "acme",
+    "query": "Within how many days must ACME employees submit expense reports?",
+    "relevant_chunk_ids": [
+      "employee-handbook:chunk-003"
+    ]
+  },
+  {
+    "id": "retrieval-007",
+    "tenant_id": "globex",
+    "query": "What is the expense submission deadline for GLOBEX employees?",
+    "relevant_chunk_ids": [
+      "employee-handbook:chunk-004"
+    ]
+  },
+  {
+    "id": "retrieval-008",
+    "tenant_id": "globex",
+    "query": "What authentication security requirement applies to GLOBEX employees?",
+    "relevant_chunk_ids": [
+      "employee-handbook:chunk-003"
+    ]
+  },
+  {
+    "id": "retrieval-009",
+    "tenant_id": "acme",
+    "query": "What must ACME employees use when accessing company systems remotely?",
+    "relevant_chunk_ids": [
+      "employee-handbook:chunk-002"
+    ]
+  },
+  {
+    "id": "retrieval-010",
+    "tenant_id": "acme",
+    "query": "I'm setting up a home office. Does my employer offer any financial assistance?",
+    "relevant_chunk_ids": [
+      "remote-work-policy:chunk-001"
+    ]
+  },
+  {
+    "id": "retrieval-011",
+    "tenant_id": "globex",
+    "query": "Can I get reimbursed for equipment and internet costs when working from home?",
+    "relevant_chunk_ids": [
+      "remote-work-policy:chunk-001"
+    ]
+  },
+  {
+    "id": "retrieval-012",
+    "tenant_id": "acme",
+    "query": "How much paid time off am I entitled to each year?",
+    "relevant_chunk_ids": [
+      "employee-handbook:chunk-001"
+    ]
+  },
+  {
+    "id": "retrieval-013",
+    "tenant_id": "globex",
+    "query": "How much annual vacation time do employees get?",
+    "relevant_chunk_ids": [
+      "employee-handbook:chunk-001"
+    ]
+  },
+  {
+    "id": "retrieval-014",
+    "tenant_id": "acme",
+    "query": "Is there a limit on how often I can work from home during the week?",
+    "relevant_chunk_ids": [
+      "employee-handbook:chunk-002"
+    ]
+  },
+  {
+    "id": "retrieval-015",
+    "tenant_id": "acme",
+    "query": "Do I need a VPN to connect to internal systems from outside the office?",
+    "relevant_chunk_ids": [
+      "employee-handbook:chunk-002"
+    ]
+  },
+  {
+    "id": "retrieval-016",
+    "tenant_id": "globex",
+    "query": "Is MFA mandatory for accessing company systems?",
+    "relevant_chunk_ids": [
+      "employee-handbook:chunk-003"
+    ]
+  },
+  {
+    "id": "retrieval-017",
+    "tenant_id": "globex",
+    "query": "What security measures protect employee logins?",
+    "relevant_chunk_ids": [
+      "employee-handbook:chunk-003"
+    ]
+  },
+  {
+    "id": "retrieval-018",
+    "tenant_id": "acme",
+    "query": "How long do I have to file a business expense after making a purchase?",
+    "relevant_chunk_ids": [
+      "employee-handbook:chunk-003"
+    ]
+  },
+  {
+    "id": "retrieval-019",
+    "tenant_id": "globex",
+    "query": "When should I turn in my receipts for business expenses?",
+    "relevant_chunk_ids": [
+      "employee-handbook:chunk-004"
+    ]
+  },
+  {
+    "id": "retrieval-020",
+    "tenant_id": "acme",
+    "query": "Does GLOBEX provide a 2000 USD remote work allowance?",
+    "relevant_chunk_ids": [
+      "remote-work-policy:chunk-001"
+    ]
+  },
+  {
+    "id": "retrieval-021",
+    "tenant_id": "globex",
+    "query": "ACME gives employees 500 USD for home offices. What is the allowance available to me?",
+    "relevant_chunk_ids": [
+      "remote-work-policy:chunk-001"
+    ]
+  },
+  {
+    "id": "retrieval-022",
+    "tenant_id": "acme",
+    "query": "What are the rules for working remotely and accessing company systems securely?",
+    "relevant_chunk_ids": [
+      "employee-handbook:chunk-002"
+    ]
+  },
+  {
+    "id": "retrieval-023",
+    "tenant_id": "acme",
+    "query": "What financial support and remote working arrangements are available to employees?",
+    "relevant_chunk_ids": [
+      "remote-work-policy:chunk-001",
+      "employee-handbook:chunk-002"
+    ]
+  },
+  {
+    "id": "retrieval-024",
+    "tenant_id": "globex",
+    "query": "What are the employee leave entitlement and business expense reporting deadlines?",
+    "relevant_chunk_ids": [
+      "employee-handbook:chunk-001",
+      "employee-handbook:chunk-004"
+    ]
+  }
+]

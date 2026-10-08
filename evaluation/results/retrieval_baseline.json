@@ -1,0 +1,683 @@
+{
+  "generated_at": "2026-10-08T20:41:01.841421+00:00",
+  "retrieval_limit": 5,
+  "final_limit": 3,
+  "lambda_value": 0.5,
+  "total_cases": 24,
+  "mean_precision_at_k": 0.3611,
+  "mean_recall_at_k": 1.0,
+  "mrr": 0.9375,
+  "results": [
+    {
+      "case_id": "retrieval-001",
+      "tenant_id": "acme",
+      "query": "What is the remote work allowance?",
+      "retrieved_ids": [
+        "remote-work-policy:chunk-001",
+        "employee-handbook:chunk-002",
+        "employee-handbook:chunk-004"
+      ],
+      "retrieved_source_groups": [
+        [
+          "remote-work-policy:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-002",
+          "second-document:chunk-002"
+        ],
+        [
+          "employee-handbook:chunk-004"
+        ]
+      ],
+      "relevant_ids": [
+        "remote-work-policy:chunk-001"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-002",
+      "tenant_id": "globex",
+      "query": "What is the remote work allowance?",
+      "retrieved_ids": [
+        "remote-work-policy:chunk-001",
+        "employee-handbook:chunk-003",
+        "employee-handbook:chunk-004"
+      ],
+      "retrieved_source_groups": [
+        [
+          "remote-work-policy:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-003"
+        ],
+        [
+          "employee-handbook:chunk-004"
+        ]
+      ],
+      "relevant_ids": [
+        "remote-work-policy:chunk-001"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-003",
+      "tenant_id": "acme",
+      "query": "How many days of annual leave do ACME employees receive?",
+      "retrieved_ids": [
+        "employee-handbook:chunk-001",
+        "remote-work-policy:chunk-001",
+        "employee-handbook:chunk-002"
+      ],
+      "retrieved_source_groups": [
+        [
+          "employee-handbook:chunk-001",
+          "second-document:chunk-001"
+        ],
+        [
+          "remote-work-policy:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-002",
+          "second-document:chunk-002"
+        ]
+      ],
+      "relevant_ids": [
+        "employee-handbook:chunk-001"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-004",
+      "tenant_id": "globex",
+      "query": "How many days of annual leave do GLOBEX employees receive?",
+      "retrieved_ids": [
+        "employee-handbook:chunk-001",
+        "remote-work-policy:chunk-001",
+        "employee-handbook:chunk-004"
+      ],
+      "retrieved_source_groups": [
+        [
+          "employee-handbook:chunk-001"
+        ],
+        [
+          "remote-work-policy:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-004"
+        ]
+      ],
+      "relevant_ids": [
+        "employee-handbook:chunk-001"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-005",
+      "tenant_id": "acme",
+      "query": "How many days per week can ACME employees work remotely?",
+      "retrieved_ids": [
+        "employee-handbook:chunk-002",
+        "remote-work-policy:chunk-001",
+        "employee-handbook:chunk-001"
+      ],
+      "retrieved_source_groups": [
+        [
+          "employee-handbook:chunk-002",
+          "second-document:chunk-002"
+        ],
+        [
+          "remote-work-policy:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-001",
+          "second-document:chunk-001"
+        ]
+      ],
+      "relevant_ids": [
+        "employee-handbook:chunk-002"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-006",
+      "tenant_id": "acme",
+      "query": "Within how many days must ACME employees submit expense reports?",
+      "retrieved_ids": [
+        "employee-handbook:chunk-003",
+        "remote-work-policy:chunk-001",
+        "employee-handbook:chunk-002"
+      ],
+      "retrieved_source_groups": [
+        [
+          "employee-handbook:chunk-003",
+          "second-document:chunk-003"
+        ],
+        [
+          "remote-work-policy:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-002",
+          "second-document:chunk-002"
+        ]
+      ],
+      "relevant_ids": [
+        "employee-handbook:chunk-003"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-007",
+      "tenant_id": "globex",
+      "query": "What is the expense submission deadline for GLOBEX employees?",
+      "retrieved_ids": [
+        "employee-handbook:chunk-001",
+        "employee-handbook:chunk-004",
+        "remote-work-policy:chunk-001"
+      ],
+      "retrieved_source_groups": [
+        [
+          "employee-handbook:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-004"
+        ],
+        [
+          "remote-work-policy:chunk-001"
+        ]
+      ],
+      "relevant_ids": [
+        "employee-handbook:chunk-004"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.5
+    },
+    {
+      "case_id": "retrieval-008",
+      "tenant_id": "globex",
+      "query": "What authentication security requirement applies to GLOBEX employees?",
+      "retrieved_ids": [
+        "remote-work-policy:chunk-001",
+        "employee-handbook:chunk-003",
+        "employee-handbook:chunk-001"
+      ],
+      "retrieved_source_groups": [
+        [
+          "remote-work-policy:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-003"
+        ],
+        [
+          "employee-handbook:chunk-001"
+        ]
+      ],
+      "relevant_ids": [
+        "employee-handbook:chunk-003"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.5
+    },
+    {
+      "case_id": "retrieval-009",
+      "tenant_id": "acme",
+      "query": "What must ACME employees use when accessing company systems remotely?",
+      "retrieved_ids": [
+        "remote-work-policy:chunk-001",
+        "employee-handbook:chunk-002",
+        "second-document:chunk-004"
+      ],
+      "retrieved_source_groups": [
+        [
+          "remote-work-policy:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-002",
+          "second-document:chunk-002"
+        ],
+        [
+          "second-document:chunk-004"
+        ]
+      ],
+      "relevant_ids": [
+        "employee-handbook:chunk-002"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.5
+    },
+    {
+      "case_id": "retrieval-010",
+      "tenant_id": "acme",
+      "query": "I'm setting up a home office. Does my employer offer any financial assistance?",
+      "retrieved_ids": [
+        "remote-work-policy:chunk-001",
+        "second-document:chunk-001",
+        "employee-handbook:chunk-002"
+      ],
+      "retrieved_source_groups": [
+        [
+          "remote-work-policy:chunk-001"
+        ],
+        [
+          "second-document:chunk-001",
+          "employee-handbook:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-002",
+          "second-document:chunk-002"
+        ]
+      ],
+      "relevant_ids": [
+        "remote-work-policy:chunk-001"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-011",
+      "tenant_id": "globex",
+      "query": "Can I get reimbursed for equipment and internet costs when working from home?",
+      "retrieved_ids": [
+        "remote-work-policy:chunk-001",
+        "employee-handbook:chunk-004",
+        "employee-handbook:chunk-003"
+      ],
+      "retrieved_source_groups": [
+        [
+          "remote-work-policy:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-004"
+        ],
+        [
+          "employee-handbook:chunk-003"
+        ]
+      ],
+      "relevant_ids": [
+        "remote-work-policy:chunk-001"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-012",
+      "tenant_id": "acme",
+      "query": "How much paid time off am I entitled to each year?",
+      "retrieved_ids": [
+        "employee-handbook:chunk-001",
+        "remote-work-policy:chunk-001",
+        "employee-handbook:chunk-002"
+      ],
+      "retrieved_source_groups": [
+        [
+          "employee-handbook:chunk-001",
+          "second-document:chunk-001"
+        ],
+        [
+          "remote-work-policy:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-002",
+          "second-document:chunk-002"
+        ]
+      ],
+      "relevant_ids": [
+        "employee-handbook:chunk-001"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-013",
+      "tenant_id": "globex",
+      "query": "How much annual vacation time do employees get?",
+      "retrieved_ids": [
+        "employee-handbook:chunk-001",
+        "remote-work-policy:chunk-001",
+        "employee-handbook:chunk-004"
+      ],
+      "retrieved_source_groups": [
+        [
+          "employee-handbook:chunk-001"
+        ],
+        [
+          "remote-work-policy:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-004"
+        ]
+      ],
+      "relevant_ids": [
+        "employee-handbook:chunk-001"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-014",
+      "tenant_id": "acme",
+      "query": "Is there a limit on how often I can work from home during the week?",
+      "retrieved_ids": [
+        "employee-handbook:chunk-002",
+        "employee-handbook:chunk-001",
+        "employee-handbook:chunk-004"
+      ],
+      "retrieved_source_groups": [
+        [
+          "employee-handbook:chunk-002",
+          "second-document:chunk-002"
+        ],
+        [
+          "employee-handbook:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-004"
+        ]
+      ],
+      "relevant_ids": [
+        "employee-handbook:chunk-002"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-015",
+      "tenant_id": "acme",
+      "query": "Do I need a VPN to connect to internal systems from outside the office?",
+      "retrieved_ids": [
+        "employee-handbook:chunk-002",
+        "second-document:chunk-004",
+        "employee-handbook:chunk-001"
+      ],
+      "retrieved_source_groups": [
+        [
+          "employee-handbook:chunk-002",
+          "second-document:chunk-002"
+        ],
+        [
+          "second-document:chunk-004"
+        ],
+        [
+          "employee-handbook:chunk-001"
+        ]
+      ],
+      "relevant_ids": [
+        "employee-handbook:chunk-002"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-016",
+      "tenant_id": "globex",
+      "query": "Is MFA mandatory for accessing company systems?",
+      "retrieved_ids": [
+        "employee-handbook:chunk-003",
+        "employee-handbook:chunk-001",
+        "employee-handbook:chunk-004"
+      ],
+      "retrieved_source_groups": [
+        [
+          "employee-handbook:chunk-003"
+        ],
+        [
+          "employee-handbook:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-004"
+        ]
+      ],
+      "relevant_ids": [
+        "employee-handbook:chunk-003"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-017",
+      "tenant_id": "globex",
+      "query": "What security measures protect employee logins?",
+      "retrieved_ids": [
+        "employee-handbook:chunk-003",
+        "remote-work-policy:chunk-001",
+        "employee-handbook:chunk-002"
+      ],
+      "retrieved_source_groups": [
+        [
+          "employee-handbook:chunk-003"
+        ],
+        [
+          "remote-work-policy:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-002"
+        ]
+      ],
+      "relevant_ids": [
+        "employee-handbook:chunk-003"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-018",
+      "tenant_id": "acme",
+      "query": "How long do I have to file a business expense after making a purchase?",
+      "retrieved_ids": [
+        "employee-handbook:chunk-003",
+        "employee-handbook:chunk-001",
+        "remote-work-policy:chunk-001"
+      ],
+      "retrieved_source_groups": [
+        [
+          "employee-handbook:chunk-003",
+          "second-document:chunk-003"
+        ],
+        [
+          "employee-handbook:chunk-001",
+          "second-document:chunk-001"
+        ],
+        [
+          "remote-work-policy:chunk-001"
+        ]
+      ],
+      "relevant_ids": [
+        "employee-handbook:chunk-003"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-019",
+      "tenant_id": "globex",
+      "query": "When should I turn in my receipts for business expenses?",
+      "retrieved_ids": [
+        "employee-handbook:chunk-004",
+        "employee-handbook:chunk-003",
+        "remote-work-policy:chunk-001"
+      ],
+      "retrieved_source_groups": [
+        [
+          "employee-handbook:chunk-004"
+        ],
+        [
+          "employee-handbook:chunk-003"
+        ],
+        [
+          "remote-work-policy:chunk-001"
+        ]
+      ],
+      "relevant_ids": [
+        "employee-handbook:chunk-004"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-020",
+      "tenant_id": "acme",
+      "query": "Does GLOBEX provide a 2000 USD remote work allowance?",
+      "retrieved_ids": [
+        "remote-work-policy:chunk-001",
+        "employee-handbook:chunk-002",
+        "employee-handbook:chunk-001"
+      ],
+      "retrieved_source_groups": [
+        [
+          "remote-work-policy:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-002",
+          "second-document:chunk-002"
+        ],
+        [
+          "employee-handbook:chunk-001",
+          "second-document:chunk-001"
+        ]
+      ],
+      "relevant_ids": [
+        "remote-work-policy:chunk-001"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-021",
+      "tenant_id": "globex",
+      "query": "ACME gives employees 500 USD for home offices. What is the allowance available to me?",
+      "retrieved_ids": [
+        "remote-work-policy:chunk-001",
+        "employee-handbook:chunk-003",
+        "employee-handbook:chunk-004"
+      ],
+      "retrieved_source_groups": [
+        [
+          "remote-work-policy:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-003"
+        ],
+        [
+          "employee-handbook:chunk-004"
+        ]
+      ],
+      "relevant_ids": [
+        "remote-work-policy:chunk-001"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-022",
+      "tenant_id": "acme",
+      "query": "What are the rules for working remotely and accessing company systems securely?",
+      "retrieved_ids": [
+        "employee-handbook:chunk-002",
+        "remote-work-policy:chunk-001",
+        "employee-handbook:chunk-004"
+      ],
+      "retrieved_source_groups": [
+        [
+          "employee-handbook:chunk-002",
+          "second-document:chunk-002"
+        ],
+        [
+          "remote-work-policy:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-004"
+        ]
+      ],
+      "relevant_ids": [
+        "employee-handbook:chunk-002"
+      ],
+      "precision_at_k": 0.3333333333333333,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-023",
+      "tenant_id": "acme",
+      "query": "What financial support and remote working arrangements are available to employees?",
+      "retrieved_ids": [
+        "remote-work-policy:chunk-001",
+        "employee-handbook:chunk-002",
+        "employee-handbook:chunk-001"
+      ],
+      "retrieved_source_groups": [
+        [
+          "remote-work-policy:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-002",
+          "second-document:chunk-002"
+        ],
+        [
+          "employee-handbook:chunk-001",
+          "second-document:chunk-001"
+        ]
+      ],
+      "relevant_ids": [
+        "remote-work-policy:chunk-001",
+        "employee-handbook:chunk-002"
+      ],
+      "precision_at_k": 0.6666666666666666,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "retrieval-024",
+      "tenant_id": "globex",
+      "query": "What are the employee leave entitlement and business expense reporting deadlines?",
+      "retrieved_ids": [
+        "employee-handbook:chunk-004",
+        "employee-handbook:chunk-001",
+        "employee-handbook:chunk-002"
+      ],
+      "retrieved_source_groups": [
+        [
+          "employee-handbook:chunk-004"
+        ],
+        [
+          "employee-handbook:chunk-001"
+        ],
+        [
+          "employee-handbook:chunk-002"
+        ]
+      ],
+      "relevant_ids": [
+        "employee-handbook:chunk-001",
+        "employee-handbook:chunk-004"
+      ],
+      "precision_at_k": 0.6666666666666666,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ]
+}

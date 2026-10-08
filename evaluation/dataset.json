@@ -1,0 +1,138 @@
+[
+  {
+    "id": "eval-001",
+    "query": "What is the remote work allowance?",
+    "tenant_id": "acme",
+    "expected_answer": "500 USD",
+    "expected_document_id": "remote-work-policy",
+    "expected_filename": "acme-policy.pdf",
+    "should_answer": true
+  },
+  {
+    "id": "eval-002",
+    "query": "What is the remote work allowance?",
+    "tenant_id": "globex",
+    "expected_answer": "2000 USD",
+    "expected_document_id": "remote-work-policy",
+    "expected_filename": "globex-policy.pdf",
+    "should_answer": true
+  },
+  {
+    "id": "eval-003",
+    "query": "Does ACME provide employees with a company car?",
+    "tenant_id": "acme",
+    "expected_answer": null,
+    "expected_document_id": null,
+    "expected_filename": null,
+    "should_answer": false
+  },
+
+  {
+  "id": "eval-004",
+  "query": "How much financial support do ACME employees receive for working from home?",
+  "tenant_id": "acme",
+  "expected_answer": "500 USD",
+  "expected_document_id": "remote-work-policy",
+  "expected_filename": "acme-policy.pdf",
+  "should_answer": true
+},
+{
+  "id": "eval-005",
+  "query": "How much is the yearly home office allowance for GLOBEX employees?",
+  "tenant_id": "globex",
+  "expected_answer": "2000 USD",
+  "expected_document_id": "remote-work-policy",
+  "expected_filename": "globex-policy.pdf",
+  "should_answer": true
+},
+{
+  "id": "eval-006",
+  "query": "How many days of annual leave do ACME employees receive?",
+  "tenant_id": "acme",
+  "expected_answer": "20",
+  "expected_document_id": null,
+  "expected_filename": null,
+  "should_answer": true
+},
+{
+  "id": "eval-007",
+  "query": "How many days of annual leave do GLOBEX employees receive?",
+  "tenant_id": "globex",
+  "expected_answer": "25",
+  "expected_document_id": null,
+  "expected_filename": null,
+  "should_answer": true
+},
+{
+  "id": "eval-008",
+  "query": "Does ACME provide free international flights to all employees?",
+  "tenant_id": "acme",
+  "expected_answer": null,
+  "expected_document_id": null,
+  "expected_filename": null,
+  "should_answer": false
+},
+{
+  "id": "eval-009",
+  "query": "Does GLOBEX provide employees with free company cars?",
+  "tenant_id": "globex",
+  "expected_answer": null,
+  "expected_document_id": null,
+  "expected_filename": null,
+  "should_answer": false
+},
+  {
+  "id": "eval-010",
+  "query": "How many days per week can ACME employees work remotely?",
+  "tenant_id": "acme",
+  "expected_answer": ["2 days", "two days"],
+  "expected_document_id": null,
+  "expected_filename": null,
+  "should_answer": true
+},
+{
+  "id": "eval-011",
+  "query": "Within how many days must ACME employees submit expense reports?",
+  "tenant_id": "acme",
+  "expected_answer": "30",
+  "expected_document_id": null,
+  "expected_filename": null,
+  "should_answer": true
+},
+{
+  "id": "eval-012",
+  "query": "What is the expense submission deadline for GLOBEX employees?",
+  "tenant_id": "globex",
+  "expected_answer": "20",
+  "expected_document_id": null,
+  "expected_filename": null,
+  "should_answer": true
+},
+{
+  "id": "eval-013",
+  "query": "What authentication security requirement applies to GLOBEX employees?",
+  "tenant_id": "globex",
+  "expected_answer": ["MFA", "multi-factor authentication"],
+  "expected_document_id": null,
+  "expected_filename": null,
+  "should_answer": true
+},
+{
+  "id": "eval-014",
+  "query": "What must ACME employees use when accessing company systems remotely?",
+  "tenant_id": "acme",
+  "expected_answer": "VPN",
+  "expected_document_id": null,
+  "expected_filename": null,
+  "should_answer": true
+},
+{
+  "id": "eval-015",
+  "query": "Does GLOBEX provide free gym memberships to every employee?",
+  "tenant_id": "globex",
+  "expected_answer": null,
+  "expected_document_id": null,
+  "expected_filename": null,
+  "should_answer": false
+}
+]

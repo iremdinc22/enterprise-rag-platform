@@ -18,23 +18,30 @@ async def run_rag(
     user_context: UserContext,
     retrieval_limit=5,
     final_limit=3,
-    lambda_value=0.5
+    lambda_value=0.5,
+    use_cache=True
 ):
-    cached_result = get_cached_result(
-        tenant_id=user_context.tenant_id,
-        query=query,
-        model=model,
-        retrieval_limit=retrieval_limit,
-        final_limit=final_limit,
-        lambda_value=lambda_value
-    )
+    # Check result cache only when caching is enabled
+    if use_cache:
+        cached_result = get_cached_result(
+            tenant_id=user_context.tenant_id,
+            query=query,
+            model=model,
+            retrieval_limit=retrieval_limit,
+            final_limit=final_limit,
+            lambda_value=lambda_value
+        )
 
-    if cached_result is not None:
-        print("RAG result cache: HIT")
-        return cached_result
+        if cached_result is not None:
+            print("RAG result cache: HIT")
+            return cached_result
 
-    print("RAG result cache: MISS")
+        print("RAG result cache: MISS")
 
+    else:
+        print("RAG result cache: BYPASSED")
+
+    # Retrieve relevant contexts
     contexts = await select_context(
         query=query,
         tenant_id=user_context.tenant_id,
@@ -43,22 +50,27 @@ async def run_rag(
         lambda_value=lambda_value
     )
 
+    # Build citations from retrieved contexts
     citations = build_citations(contexts)
 
+    # Format citations for the generation model
     citation_context = format_citation_context(
         citations
     )
 
+    # Generate the answer
     generation = await generate_answer(
         query=query,
         context=citation_context,
         model=model
     )
 
+    # Build citation response
     citation_response = build_citation_response(
         citations
     )
 
+    # Return citations only when the answer is supported
     if not generation.answered:
         citation_response = []
     else:
@@ -74,14 +86,16 @@ async def run_rag(
         "citations": citation_response
     }
 
-    cache_result(
-        tenant_id=user_context.tenant_id,
-        query=query,
-        model=model,
-        retrieval_limit=retrieval_limit,
-        final_limit=final_limit,
-        lambda_value=lambda_value,
-        result=result
-    )
+    # Save result to cache only when caching is enabled
+    if use_cache:
+        cache_result(
+            tenant_id=user_context.tenant_id,
+            query=query,
+            model=model,
+            retrieval_limit=retrieval_limit,
+            final_limit=final_limit,
+            lambda_value=lambda_value,
+            result=result
+        )
 
     return result

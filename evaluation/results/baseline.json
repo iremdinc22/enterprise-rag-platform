@@ -1,0 +1,383 @@
+{
+  "generated_at": "2026-10-08T14:31:50.210875+00:00",
+  "model": "gpt-4o-mini",
+  "result_cache_enabled": false,
+  "total_cases": 15,
+  "passed_cases": 15,
+  "failed_cases": 0,
+  "pass_rate": 1.0,
+  "results": [
+    {
+      "case_id": "eval-001",
+      "tenant_id": "acme",
+      "query": "What is the remote work allowance?",
+      "expected_answer": "500 USD",
+      "actual_answer": "Employees working remotely receive an annual home office allowance of 500 USD, which can be used for office equipment and internet-related expenses [1].",
+      "citations": [
+        {
+          "citation_id": 1,
+          "sources": [
+            {
+              "document_id": "remote-work-policy",
+              "filename": "acme-policy.pdf",
+              "page": 1,
+              "chunk_id": "chunk-001"
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "answer": true,
+        "no_answer": null,
+        "citation_source": true
+      },
+      "passed": true
+    },
+    {
+      "case_id": "eval-002",
+      "tenant_id": "globex",
+      "query": "What is the remote work allowance?",
+      "expected_answer": "2000 USD",
+      "actual_answer": "Employees working remotely receive an annual home office allowance of 2000 USD. This allowance may be used for office equipment and internet-related expenses.",
+      "citations": [
+        {
+          "citation_id": 1,
+          "sources": [
+            {
+              "document_id": "remote-work-policy",
+              "filename": "globex-policy.pdf",
+              "page": 1,
+              "chunk_id": "chunk-001"
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "answer": true,
+        "no_answer": null,
+        "citation_source": true
+      },
+      "passed": true
+    },
+    {
+      "case_id": "eval-003",
+      "tenant_id": "acme",
+      "query": "Does ACME provide employees with a company car?",
+      "expected_answer": null,
+      "actual_answer": "I don't have enough information in the provided sources to answer this question.",
+      "citations": [],
+      "checks": {
+        "answer": null,
+        "no_answer": true,
+        "citation_source": null
+      },
+      "passed": true
+    },
+    {
+      "case_id": "eval-004",
+      "tenant_id": "acme",
+      "query": "How much financial support do ACME employees receive for working from home?",
+      "expected_answer": "500 USD",
+      "actual_answer": "ACME employees receive an annual home office allowance of 500 USD for working from home. This allowance can be used for office equipment and internet-related expenses.",
+      "citations": [
+        {
+          "citation_id": 1,
+          "sources": [
+            {
+              "document_id": "remote-work-policy",
+              "filename": "acme-policy.pdf",
+              "page": 1,
+              "chunk_id": "chunk-001"
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "answer": true,
+        "no_answer": null,
+        "citation_source": true
+      },
+      "passed": true
+    },
+    {
+      "case_id": "eval-005",
+      "tenant_id": "globex",
+      "query": "How much is the yearly home office allowance for GLOBEX employees?",
+      "expected_answer": "2000 USD",
+      "actual_answer": "GLOBEX employees working remotely receive an annual home office allowance of 2000 USD. This allowance may be used for office equipment and internet-related expenses.[1]",
+      "citations": [
+        {
+          "citation_id": 1,
+          "sources": [
+            {
+              "document_id": "remote-work-policy",
+              "filename": "globex-policy.pdf",
+              "page": 1,
+              "chunk_id": "chunk-001"
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "answer": true,
+        "no_answer": null,
+        "citation_source": true
+      },
+      "passed": true
+    },
+    {
+      "case_id": "eval-006",
+      "tenant_id": "acme",
+      "query": "How many days of annual leave do ACME employees receive?",
+      "expected_answer": "20",
+      "actual_answer": "Employees receive 20 days of annual leave at ACME. Unused leave may be carried over to the following year subject to company policy. [1]",
+      "citations": [
+        {
+          "citation_id": 1,
+          "sources": [
+            {
+              "document_id": "employee-handbook",
+              "filename": "employee-handbook.pdf",
+              "page": 1,
+              "chunk_id": "chunk-001"
+            },
+            {
+              "document_id": "second-document",
+              "filename": "employee-handbook.pdf",
+              "page": 1,
+              "chunk_id": "chunk-001"
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "answer": true,
+        "no_answer": null,
+        "citation_source": null
+      },
+      "passed": true
+    },
+    {
+      "case_id": "eval-007",
+      "tenant_id": "globex",
+      "query": "How many days of annual leave do GLOBEX employees receive?",
+      "expected_answer": "25",
+      "actual_answer": "GLOBEX employees receive 25 days of annual leave.",
+      "citations": [
+        {
+          "citation_id": 1,
+          "sources": [
+            {
+              "document_id": "employee-handbook",
+              "filename": "globex-handbook.pdf",
+              "page": 1,
+              "chunk_id": "chunk-001"
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "answer": true,
+        "no_answer": null,
+        "citation_source": null
+      },
+      "passed": true
+    },
+    {
+      "case_id": "eval-008",
+      "tenant_id": "acme",
+      "query": "Does ACME provide free international flights to all employees?",
+      "expected_answer": null,
+      "actual_answer": "I don't have enough information in the provided sources to answer this question.",
+      "citations": [],
+      "checks": {
+        "answer": null,
+        "no_answer": true,
+        "citation_source": null
+      },
+      "passed": true
+    },
+    {
+      "case_id": "eval-009",
+      "tenant_id": "globex",
+      "query": "Does GLOBEX provide employees with free company cars?",
+      "expected_answer": null,
+      "actual_answer": "I don't have enough information in the provided sources to answer this question.",
+      "citations": [],
+      "checks": {
+        "answer": null,
+        "no_answer": true,
+        "citation_source": null
+      },
+      "passed": true
+    },
+    {
+      "case_id": "eval-010",
+      "tenant_id": "acme",
+      "query": "How many days per week can ACME employees work remotely?",
+      "expected_answer": [
+        "2 days",
+        "two days"
+      ],
+      "actual_answer": "ACME employees may work remotely up to two days per week [1].",
+      "citations": [
+        {
+          "citation_id": 1,
+          "sources": [
+            {
+              "document_id": "employee-handbook",
+              "filename": "employee-handbook.pdf",
+              "page": 2,
+              "chunk_id": "chunk-002"
+            },
+            {
+              "document_id": "second-document",
+              "filename": "employee-handbook.pdf",
+              "page": 2,
+              "chunk_id": "chunk-002"
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "answer": true,
+        "no_answer": null,
+        "citation_source": null
+      },
+      "passed": true
+    },
+    {
+      "case_id": "eval-011",
+      "tenant_id": "acme",
+      "query": "Within how many days must ACME employees submit expense reports?",
+      "expected_answer": "30",
+      "actual_answer": "ACME employees must submit expense reports within 30 days.[1]",
+      "citations": [
+        {
+          "citation_id": 1,
+          "sources": [
+            {
+              "document_id": "employee-handbook",
+              "filename": "employee-handbook.pdf",
+              "page": 3,
+              "chunk_id": "chunk-003"
+            },
+            {
+              "document_id": "second-document",
+              "filename": "employee-handbook.pdf",
+              "page": 3,
+              "chunk_id": "chunk-003"
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "answer": true,
+        "no_answer": null,
+        "citation_source": null
+      },
+      "passed": true
+    },
+    {
+      "case_id": "eval-012",
+      "tenant_id": "globex",
+      "query": "What is the expense submission deadline for GLOBEX employees?",
+      "expected_answer": "20",
+      "actual_answer": "The expense submission deadline for GLOBEX employees is within 20 days of the incurred expense. Receipts are required for reimbursable business expenses [2].",
+      "citations": [
+        {
+          "citation_id": 2,
+          "sources": [
+            {
+              "document_id": "employee-handbook",
+              "filename": "globex-handbook.pdf",
+              "page": 4,
+              "chunk_id": "chunk-004"
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "answer": true,
+        "no_answer": null,
+        "citation_source": null
+      },
+      "passed": true
+    },
+    {
+      "case_id": "eval-013",
+      "tenant_id": "globex",
+      "query": "What authentication security requirement applies to GLOBEX employees?",
+      "expected_answer": [
+        "MFA",
+        "multi-factor authentication"
+      ],
+      "actual_answer": "The authentication security requirement that applies to GLOBEX employees is that they must use multi-factor authentication when accessing company systems. Additionally, company credentials must not be shared with other employees or external parties [2].",
+      "citations": [
+        {
+          "citation_id": 2,
+          "sources": [
+            {
+              "document_id": "employee-handbook",
+              "filename": "globex-handbook.pdf",
+              "page": 3,
+              "chunk_id": "chunk-003"
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "answer": true,
+        "no_answer": null,
+        "citation_source": null
+      },
+      "passed": true
+    },
+    {
+      "case_id": "eval-014",
+      "tenant_id": "acme",
+      "query": "What must ACME employees use when accessing company systems remotely?",
+      "expected_answer": "VPN",
+      "actual_answer": "ACME employees must connect to internal company systems through the approved VPN service when accessing company systems remotely [2].",
+      "citations": [
+        {
+          "citation_id": 2,
+          "sources": [
+            {
+              "document_id": "employee-handbook",
+              "filename": "employee-handbook.pdf",
+              "page": 2,
+              "chunk_id": "chunk-002"
+            },
+            {
+              "document_id": "second-document",
+              "filename": "employee-handbook.pdf",
+              "page": 2,
+              "chunk_id": "chunk-002"
+            }
+          ]
+        }
+      ],
+      "checks": {
+        "answer": true,
+        "no_answer": null,
+        "citation_source": null
+      },
+      "passed": true
+    },
+    {
+      "case_id": "eval-015",
+      "tenant_id": "globex",
+      "query": "Does GLOBEX provide free gym memberships to every employee?",
+      "expected_answer": null,
+      "actual_answer": "I don't have enough information in the provided sources to answer this question.",
+      "citations": [],
+      "checks": {
+        "answer": null,
+        "no_answer": true,
+        "citation_source": null
+      },
+      "passed": true
+    }
+  ]
+}

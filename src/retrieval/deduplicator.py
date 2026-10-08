@@ -37,18 +37,20 @@ def deduplicate_exact(candidates):
                 normalized_text
             ]
 
-            existing_candidate["sources"].append(source)
+            # Avoid adding the same source multiple times
+            if source not in existing_candidate["sources"]:
+                existing_candidate["sources"].append(source)
+
+            # Skip creating another candidate for the same text
             continue
 
+        # Create a new candidate for previously unseen text
         unique_candidate = {
             **candidate,
             "sources": [source]
         }
 
-        candidates_by_text[normalized_text] = (
-            unique_candidate
-        )
-
+        candidates_by_text[normalized_text] = unique_candidate
         unique_candidates.append(unique_candidate)
 
     return unique_candidates

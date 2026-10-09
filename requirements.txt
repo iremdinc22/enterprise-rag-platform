@@ -5,3 +5,8 @@ pypdf
 qdrant-client
 sentence-transformers==6.0.1
 PyJWT
+rank-bm25
+redis
+celery
+pydantic
+httpx

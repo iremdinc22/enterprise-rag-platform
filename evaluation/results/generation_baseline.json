@@ -1,0 +1,473 @@
+{
+  "generated_at": "2026-10-09T11:02:10.645298+00:00",
+  "model": "gpt-4.1-mini",
+  "retrieval_limit": 5,
+  "final_limit": 3,
+  "lambda_value": 0.5,
+  "total_cases": 8,
+  "passed_cases": 8,
+  "failed_cases": 0,
+  "error_cases": 0,
+  "pass_rate": 1.0,
+  "results": [
+    {
+      "case_id": "generation-001",
+      "category": "factual",
+      "tenant_id": "acme",
+      "query": "What is the remote work allowance?",
+      "expected_answer": "ACME employees receive a 500 USD remote work allowance.",
+      "generated_answer": "The remote work allowance is an annual home office allowance of 500 USD provided to employees working remotely. This allowance may be used for office equipment and internet-related expenses [1].",
+      "citations": [
+        {
+          "citation_id": 1,
+          "sources": [
+            {
+              "document_id": "remote-work-policy",
+              "filename": "acme-policy.pdf",
+              "page": 1,
+              "chunk_id": "chunk-001"
+            }
+          ]
+        }
+      ],
+      "status": "PASS",
+      "error": null,
+      "evaluation": {
+        "case_id": "generation-001",
+        "passed": true,
+        "checks": {
+          "expected_facts": {
+            "passed": true,
+            "missing_facts": []
+          },
+          "forbidden_facts": {
+            "passed": true,
+            "found_forbidden_facts": []
+          },
+          "citation_presence": {
+            "passed": true,
+            "cited_ids": [
+              1
+            ],
+            "available_ids": [
+              1
+            ]
+          },
+          "expected_documents": {
+            "passed": true,
+            "missing_document_ids": [],
+            "cited_document_ids": [
+              "remote-work-policy"
+            ]
+          },
+          "abstention": {
+            "passed": true,
+            "is_abstention": false
+          }
+        }
+      }
+    },
+    {
+      "case_id": "generation-002",
+      "category": "tenant_isolation",
+      "tenant_id": "globex",
+      "query": "What is the remote work allowance?",
+      "expected_answer": "GLOBEX employees receive a 2000 USD remote work allowance.",
+      "generated_answer": "The remote work allowance at Globex is an annual home office allowance of 2000 USD, which employees working remotely can use for office equipment and internet-related expenses [1].",
+      "citations": [
+        {
+          "citation_id": 1,
+          "sources": [
+            {
+              "document_id": "remote-work-policy",
+              "filename": "globex-policy.pdf",
+              "page": 1,
+              "chunk_id": "chunk-001"
+            }
+          ]
+        }
+      ],
+      "status": "PASS",
+      "error": null,
+      "evaluation": {
+        "case_id": "generation-002",
+        "passed": true,
+        "checks": {
+          "expected_facts": {
+            "passed": true,
+            "missing_facts": []
+          },
+          "forbidden_facts": {
+            "passed": true,
+            "found_forbidden_facts": []
+          },
+          "citation_presence": {
+            "passed": true,
+            "cited_ids": [
+              1
+            ],
+            "available_ids": [
+              1
+            ]
+          },
+          "expected_documents": {
+            "passed": true,
+            "missing_document_ids": [],
+            "cited_document_ids": [
+              "remote-work-policy"
+            ]
+          },
+          "abstention": {
+            "passed": true,
+            "is_abstention": false
+          }
+        }
+      }
+    },
+    {
+      "case_id": "generation-003",
+      "category": "factual",
+      "tenant_id": "acme",
+      "query": "How many days of annual leave do ACME employees receive?",
+      "expected_answer": "ACME employees receive 20 days of annual leave.",
+      "generated_answer": "ACME employees receive 20 days of annual leave.[1]",
+      "citations": [
+        {
+          "citation_id": 1,
+          "sources": [
+            {
+              "document_id": "employee-handbook",
+              "filename": "employee-handbook.pdf",
+              "page": 1,
+              "chunk_id": "chunk-001"
+            },
+            {
+              "document_id": "second-document",
+              "filename": "employee-handbook.pdf",
+              "page": 1,
+              "chunk_id": "chunk-001"
+            }
+          ]
+        }
+      ],
+      "status": "PASS",
+      "error": null,
+      "evaluation": {
+        "case_id": "generation-003",
+        "passed": true,
+        "checks": {
+          "expected_facts": {
+            "passed": true,
+            "missing_facts": []
+          },
+          "forbidden_facts": {
+            "passed": true,
+            "found_forbidden_facts": []
+          },
+          "citation_presence": {
+            "passed": true,
+            "cited_ids": [
+              1
+            ],
+            "available_ids": [
+              1
+            ]
+          },
+          "expected_documents": {
+            "passed": true,
+            "missing_document_ids": [],
+            "cited_document_ids": [
+              "employee-handbook",
+              "second-document"
+            ]
+          },
+          "abstention": {
+            "passed": true,
+            "is_abstention": false
+          }
+        }
+      }
+    },
+    {
+      "case_id": "generation-004",
+      "category": "factual",
+      "tenant_id": "globex",
+      "query": "How many days of annual leave do GLOBEX employees receive?",
+      "expected_answer": "GLOBEX employees receive 25 days of annual leave.",
+      "generated_answer": "GLOBEX employees receive 25 days of annual leave [1].",
+      "citations": [
+        {
+          "citation_id": 1,
+          "sources": [
+            {
+              "document_id": "employee-handbook",
+              "filename": "globex-handbook.pdf",
+              "page": 1,
+              "chunk_id": "chunk-001"
+            }
+          ]
+        }
+      ],
+      "status": "PASS",
+      "error": null,
+      "evaluation": {
+        "case_id": "generation-004",
+        "passed": true,
+        "checks": {
+          "expected_facts": {
+            "passed": true,
+            "missing_facts": []
+          },
+          "forbidden_facts": {
+            "passed": true,
+            "found_forbidden_facts": []
+          },
+          "citation_presence": {
+            "passed": true,
+            "cited_ids": [
+              1
+            ],
+            "available_ids": [
+              1
+            ]
+          },
+          "expected_documents": {
+            "passed": true,
+            "missing_document_ids": [],
+            "cited_document_ids": [
+              "employee-handbook"
+            ]
+          },
+          "abstention": {
+            "passed": true,
+            "is_abstention": false
+          }
+        }
+      }
+    },
+    {
+      "case_id": "generation-005",
+      "category": "security",
+      "tenant_id": "globex",
+      "query": "Is multi-factor authentication mandatory for GLOBEX employees?",
+      "expected_answer": "GLOBEX employees must use multi-factor authentication when accessing company systems.",
+      "generated_answer": "Yes, multi-factor authentication is mandatory for GLOBEX employees when accessing company systems as stated in the Security Policy: \"Employees must use multi-factor authentication when accessing company systems.\" [1]",
+      "citations": [
+        {
+          "citation_id": 1,
+          "sources": [
+            {
+              "document_id": "employee-handbook",
+              "filename": "globex-handbook.pdf",
+              "page": 3,
+              "chunk_id": "chunk-003"
+            }
+          ]
+        }
+      ],
+      "status": "PASS",
+      "error": null,
+      "evaluation": {
+        "case_id": "generation-005",
+        "passed": true,
+        "checks": {
+          "expected_facts": {
+            "passed": true,
+            "missing_facts": []
+          },
+          "forbidden_facts": {
+            "passed": true,
+            "found_forbidden_facts": []
+          },
+          "citation_presence": {
+            "passed": true,
+            "cited_ids": [
+              1
+            ],
+            "available_ids": [
+              1
+            ]
+          },
+          "expected_documents": {
+            "passed": true,
+            "missing_document_ids": [],
+            "cited_document_ids": [
+              "employee-handbook"
+            ]
+          },
+          "abstention": {
+            "passed": true,
+            "is_abstention": false
+          }
+        }
+      }
+    },
+    {
+      "case_id": "generation-006",
+      "category": "security",
+      "tenant_id": "acme",
+      "query": "What must ACME employees use to access company systems remotely?",
+      "expected_answer": "ACME employees must use the approved VPN when accessing company systems remotely.",
+      "generated_answer": "ACME employees must use the approved VPN service to connect to internal company systems when accessing them remotely. They are also advised to avoid using public or unsecured networks to ensure security [2].",
+      "citations": [
+        {
+          "citation_id": 2,
+          "sources": [
+            {
+              "document_id": "employee-handbook",
+              "filename": "employee-handbook.pdf",
+              "page": 2,
+              "chunk_id": "chunk-002"
+            },
+            {
+              "document_id": "second-document",
+              "filename": "employee-handbook.pdf",
+              "page": 2,
+              "chunk_id": "chunk-002"
+            }
+          ]
+        }
+      ],
+      "status": "PASS",
+      "error": null,
+      "evaluation": {
+        "case_id": "generation-006",
+        "passed": true,
+        "checks": {
+          "expected_facts": {
+            "passed": true,
+            "missing_facts": []
+          },
+          "forbidden_facts": {
+            "passed": true,
+            "found_forbidden_facts": []
+          },
+          "citation_presence": {
+            "passed": true,
+            "cited_ids": [
+              2
+            ],
+            "available_ids": [
+              2
+            ]
+          },
+          "expected_documents": {
+            "passed": true,
+            "missing_document_ids": [],
+            "cited_document_ids": [
+              "employee-handbook",
+              "second-document"
+            ]
+          },
+          "abstention": {
+            "passed": true,
+            "is_abstention": false
+          }
+        }
+      }
+    },
+    {
+      "case_id": "generation-007",
+      "category": "multi_fact",
+      "tenant_id": "acme",
+      "query": "How many days per week can ACME employees work remotely, and what must they use to access company systems?",
+      "expected_answer": "ACME employees can work remotely up to two days per week and must use the approved VPN to access company systems.",
+      "generated_answer": "ACME employees can work remotely up to two days per week. When working remotely, they must use the approved VPN service to connect to internal company systems to ensure secure access [1].",
+      "citations": [
+        {
+          "citation_id": 1,
+          "sources": [
+            {
+              "document_id": "employee-handbook",
+              "filename": "employee-handbook.pdf",
+              "page": 2,
+              "chunk_id": "chunk-002"
+            },
+            {
+              "document_id": "second-document",
+              "filename": "employee-handbook.pdf",
+              "page": 2,
+              "chunk_id": "chunk-002"
+            }
+          ]
+        }
+      ],
+      "status": "PASS",
+      "error": null,
+      "evaluation": {
+        "case_id": "generation-007",
+        "passed": true,
+        "checks": {
+          "expected_facts": {
+            "passed": true,
+            "missing_facts": []
+          },
+          "forbidden_facts": {
+            "passed": true,
+            "found_forbidden_facts": []
+          },
+          "citation_presence": {
+            "passed": true,
+            "cited_ids": [
+              1
+            ],
+            "available_ids": [
+              1
+            ]
+          },
+          "expected_documents": {
+            "passed": true,
+            "missing_document_ids": [],
+            "cited_document_ids": [
+              "employee-handbook",
+              "second-document"
+            ]
+          },
+          "abstention": {
+            "passed": true,
+            "is_abstention": false
+          }
+        }
+      }
+    },
+    {
+      "case_id": "generation-008",
+      "category": "abstention",
+      "tenant_id": "acme",
+      "query": "What is the company's employee stock option vesting schedule?",
+      "expected_answer": "I don't have enough information in the provided sources to answer this question.",
+      "generated_answer": "I don't have enough information in the provided sources to answer this question.",
+      "citations": [],
+      "status": "PASS",
+      "error": null,
+      "evaluation": {
+        "case_id": "generation-008",
+        "passed": true,
+        "checks": {
+          "expected_facts": {
+            "passed": true,
+            "missing_facts": []
+          },
+          "forbidden_facts": {
+            "passed": true,
+            "found_forbidden_facts": []
+          },
+          "citation_presence": {
+            "passed": true,
+            "cited_ids": [],
+            "available_ids": []
+          },
+          "expected_documents": {
+            "passed": true,
+            "missing_document_ids": [],
+            "cited_document_ids": []
+          },
+          "abstention": {
+            "passed": true,
+            "is_abstention": true
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+
+[
+  {
+    "id": "generation-001",
+    "category": "factual",
+    "tenant_id": "acme",
+    "query": "What is the remote work allowance?",
+    "expected_answer": "ACME employees receive a 500 USD remote work allowance.",
+    "expected_facts": ["500 USD"],
+    "forbidden_facts": ["2000 USD"],
+    "expected_document_ids": ["remote-work-policy"],
+    "should_answer": true
+  },
+  {
+    "id": "generation-002",
+    "category": "tenant_isolation",
+    "tenant_id": "globex",
+    "query": "What is the remote work allowance?",
+    "expected_answer": "GLOBEX employees receive a 2000 USD remote work allowance.",
+    "expected_facts": ["2000 USD"],
+    "forbidden_facts": ["500 USD"],
+    "expected_document_ids": ["remote-work-policy"],
+    "should_answer": true
+  },
+  {
+    "id": "generation-003",
+    "category": "factual",
+    "tenant_id": "acme",
+    "query": "How many days of annual leave do ACME employees receive?",
+    "expected_answer": "ACME employees receive 20 days of annual leave.",
+    "expected_facts": ["20 days"],
+    "forbidden_facts": ["25 days"],
+    "expected_document_ids": ["employee-handbook"],
+    "should_answer": true
+  },
+  {
+    "id": "generation-004",
+    "category": "factual",
+    "tenant_id": "globex",
+    "query": "How many days of annual leave do GLOBEX employees receive?",
+    "expected_answer": "GLOBEX employees receive 25 days of annual leave.",
+    "expected_facts": ["25 days"],
+    "forbidden_facts": ["20 days"],
+    "expected_document_ids": ["employee-handbook"],
+    "should_answer": true
+  },
+  {
+    "id": "generation-005",
+    "category": "security",
+    "tenant_id": "globex",
+    "query": "Is multi-factor authentication mandatory for GLOBEX employees?",
+    "expected_answer": "GLOBEX employees must use multi-factor authentication when accessing company systems.",
+    "expected_facts": ["multi-factor authentication"],
+    "forbidden_facts": [],
+    "expected_document_ids": ["employee-handbook"],
+    "should_answer": true
+  },
+  {
+    "id": "generation-006",
+    "category": "security",
+    "tenant_id": "acme",
+    "query": "What must ACME employees use to access company systems remotely?",
+    "expected_answer": "ACME employees must use the approved VPN when accessing company systems remotely.",
+    "expected_facts": ["VPN"],
+    "forbidden_facts": [],
+    "expected_document_ids": ["employee-handbook"],
+    "should_answer": true
+  },
+  {
+    "id": "generation-007",
+    "category": "multi_fact",
+    "tenant_id": "acme",
+    "query": "How many days per week can ACME employees work remotely, and what must they use to access company systems?",
+    "expected_answer": "ACME employees can work remotely up to two days per week and must use the approved VPN to access company systems.",
+    "expected_facts": [
+      "two days",
+      "VPN"
+    ],
+    "forbidden_facts": [],
+    "expected_document_ids": ["employee-handbook"],
+    "should_answer": true
+  },
+  {
+    "id": "generation-008",
+    "category": "abstention",
+    "tenant_id": "acme",
+    "query": "What is the company's employee stock option vesting schedule?",
+    "expected_answer": "I don't have enough information in the provided sources to answer this question.",
+    "expected_facts": [],
+    "forbidden_facts": [],
+    "expected_document_ids": [],
+    "should_answer": false
+  }
+]

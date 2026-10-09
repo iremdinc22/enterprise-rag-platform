@@ -1,634 +1,445 @@
 # Enterprise RAG Platform
 
-A production-oriented **Retrieval-Augmented Generation (RAG)** platform designed to explore the engineering challenges that appear when RAG systems move beyond simple `embed → retrieve → generate` workflows.
+A modular, multi-tenant **Retrieval-Augmented Generation (RAG)** project for answering questions over enterprise PDF documents with traceable sources.
 
-The platform combines document ingestion, hybrid retrieval, reranking, diversity-aware context selection, grounded generation, citations, authentication, tenant-aware retrieval, Redis caching, and automated evaluation into an explicit and testable pipeline.
+The project implements the full path from document ingestion to citation-aware answers: **PDF parsing → chunking → embeddings → hybrid retrieval → reranking → context selection → generation → validation**. It also includes JWT authentication utilities, tenant-scoped retrieval, Redis caching, background ingestion, and separate retrieval and generation evaluation workflows.
 
-> **Status:** Active development — completed through **Day 23 (Generation Evaluation)**. Core ingestion, hybrid retrieval, tenant isolation, caching, grounded generation, citation validation, targeted generation retries, and evaluation workflows are implemented. **Next: Day 24 — Observability & Tracing.**
+> **Project status:** Active development. The core pipelines and evaluation tooling are implemented as Python modules and runnable scripts. A production HTTP API, deployment packaging, and observability remain planned work.
 
----
+## Contents
+
+- [Project purpose](#project-purpose)
+- [Architecture](#architecture)
+- [Implemented engineering work](#implemented-engineering-work)
+- [Technology stack](#technology-stack)
+- [Project structure](#project-structure)
+- [Local setup](#local-setup)
+- [Usage](#usage)
+- [Evaluation and recorded results](#evaluation-and-recorded-results)
+- [Current limitations](#current-limitations)
+- [Roadmap](#roadmap)
+
+## Project purpose
+
+Enterprise document search requires more than retrieving a few similar passages. Exact policy terms can be missed by semantic search, duplicate content can consume the context window, generated answers need inspectable evidence, and documents belonging to different organizations must remain isolated.
+
+This project develops those concerns as explicit, independently inspectable components. The implementation focuses on four questions:
+
+1. **Retrieval quality:** Can lexical and semantic search find the right evidence together?
+2. **Context quality:** Can reranking and diversity selection reduce irrelevant or repetitive evidence?
+3. **Traceability:** Can answers reference the document, page, and chunk behind their sources?
+4. **Isolation and reliability:** Can tenant boundaries, cache invalidation, background retries, and evaluations remain consistent across the pipeline?
 
 ## Architecture
 
-```text
-                         ┌─────────────────────┐
-                         │    Authenticated    │
-                         │        User         │
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │     UserContext     │
-                         │ user_id · tenant_id │
-                         │        role         │
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                              User Query
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │  RAG Result Cache   │
-                         │ tenant + config key │
-                         └──────────┬──────────┘
-                              HIT   │   MISS
-                         Answer ◄───┘     │
-                                         ▼
-                 ┌─────────────────────────────────┐
-                 │      Tenant-Aware Retrieval     │
-                 │                                 │
-                 │      BM25          Vector       │
-                 │     Lexical       Semantic      │
-                 │        └──────┬───────┘         │
-                 │               ▼                 │
-                 │    Reciprocal Rank Fusion       │
-                 └───────────────┬─────────────────┘
-                                 │
-                                 ▼
-                       Exact Deduplication
-                                 │
-                                 ▼
-                       Cross-Encoder Reranking
-                                 │
-                                 ▼
-                        MMR Context Selection
-                                 │
-                                 ▼
-                       Citations & Provenance
-                                 │
-                                 ▼
-                        Grounded Generation
-                                 │
-                                 ▼
-                      Citation Consistency Validation
-                                 │
-                        ┌────────┴────────┐
-                        │                 │
-                      VALID             INVALID
-                        │                 │
-                        │          Targeted Retry
-                        │          (max 2 attempts)
-                        │                 │
-                        │          Revalidate / Error
-                        ▼
-                      Answer + Source Citations
+### Document ingestion
+
+```mermaid
+flowchart LR
+    A[PDF document] --> B[Page-aware parsing]
+    B --> C[Overlapping word chunks]
+    C --> D[Batch embeddings]
+    D --> E[Replace tenant document in Qdrant]
+    E --> F[Invalidate tenant result cache]
 ```
 
-Documents enter the system through a separate ingestion path:
+Each chunk stores `tenant_id`, `document_id`, `filename`, `page`, `chunk_id`, and `text`. Background ingestion uses Celery with Redis; a separate Redis job store tracks queued, processing, retrying, completed, and failed states.
 
-```text
-PDF
- ↓
-Parse
- ↓
-Chunk + Metadata
- ↓
-Batch Embedding
- ↓
-Qdrant
- ↓
-Invalidate Tenant Result Cache
+### Question answering
+
+```mermaid
+flowchart TD
+    A[Query + trusted UserContext] --> B{Tenant result cache}
+    B -->|Hit| Z[Answer + source metadata]
+    B -->|Miss or bypass| C[Tenant-filtered BM25]
+    C --> D[Query embedding + tenant-filtered vector search]
+    D --> E[Reciprocal Rank Fusion]
+    E --> F[Exact deduplication with source preservation]
+    F --> G[Cross-Encoder reranking]
+    G --> H[MMR context selection]
+    H --> I[Citation-aware context]
+    I --> J[Structured generation]
+    J --> K{Citation consistency validation}
+    K -->|Valid| L[Keep cited sources and optionally cache result]
+    L --> Z
+    K -->|Invalid first attempt| M[Retry with validation feedback]
+    M --> K
+    K -->|Invalid second attempt| N[Raise validation error]
 ```
 
-Ingestion can also run asynchronously:
+The retrieval branches run sequentially in the current implementation. Both use the tenant identifier supplied through the user context before their results enter rank fusion.
+
+## Implemented engineering work
+
+### 1. Document ingestion and re-ingestion
+
+The ingestion pipeline extracts text page by page with `pypdf`, creates overlapping chunks, requests embeddings in a batch, and stores the resulting vectors and metadata in Qdrant.
+
+- **Page-level provenance:** Each chunk retains its original PDF page.
+- **Configurable chunking:** Defaults are 40 words per chunk with an 8-word overlap. These are word counts, not token counts.
+- **Stable point identifiers:** UUIDv5 IDs derive from `tenant_id:document_id:chunk_id`.
+- **Document replacement:** Re-ingestion removes the previous chunks for the same tenant and document before inserting the new version, preventing obsolete chunks from remaining after a successful replacement.
+- **Cache freshness:** After insertion, cached RAG results for that tenant are invalidated.
+
+Implementation: [`src/ingestion/`](src/ingestion/) and [`src/vector_store/qdrant_store.py`](src/vector_store/qdrant_store.py).
+
+### 2. Hybrid retrieval and rank fusion
+
+BM25 retrieves lexical matches such as identifiers and technical terms; vector search retrieves semantically related passages. **Reciprocal Rank Fusion (RRF)** combines their positions instead of adding raw scores from incompatible scoring systems.
+
+For a candidate appearing in either result list:
 
 ```text
-Request → Redis → Celery Worker → Ingestion Pipeline
+RRF score = sum(1 / (k + rank))
+Default k = 60
 ```
 
-This keeps expensive document processing outside the synchronous request path.
+The fused candidate records retain the individual BM25 and vector ranks and scores, making each branch's contribution inspectable.
 
----
+Implementation: [`src/retrieval/bm25_retriever.py`](src/retrieval/bm25_retriever.py) and [`src/retrieval/hybrid_retriever.py`](src/retrieval/hybrid_retriever.py).
 
-## Why This Project?
+### 3. Reranking, deduplication, and context diversity
 
-A basic RAG prototype can retrieve semantically similar chunks and send them directly to an LLM.
+The context selector refines the candidate pool in three steps:
 
-As the system grows, additional engineering problems appear:
+1. **Deduplicate:** Normalize case and whitespace, merge identical content, and preserve every distinct source record.
+2. **Rerank:** Use `cross-encoder/ms-marco-MiniLM-L6-v2` to score query–passage pairs together.
+3. **Diversify:** Use Maximal Marginal Relevance (MMR) to balance normalized reranker relevance against similarity to passages already selected.
 
-- semantic search may miss exact identifiers and domain-specific terminology,
-- lexical and vector scores are not directly comparable,
-- retrieved candidates may contain redundant information,
-- duplicate content can exist across multiple sources,
-- generated claims need traceable evidence,
-- ingestion should not block application requests,
-- users must not retrieve documents belonging to another tenant,
-- retrieval does not necessarily mean the available evidence can answer the question.
+The default `lambda_value=0.5` weights relevance and redundancy equally. Candidate embeddings for MMR are generated in a fresh batch. The default pipeline retrieves up to five results per branch, keeps five fused candidates before deduplication, and selects up to three final contexts.
 
-This project handles these concerns as explicit layers that can be inspected, tested, and improved independently.
+Implementation: [`src/retrieval/context_selector.py`](src/retrieval/context_selector.py), [`deduplicator.py`](src/retrieval/deduplicator.py), [`reranker.py`](src/retrieval/reranker.py), and [`mmr.py`](src/retrieval/mmr.py).
 
----
+### 4. Grounded generation and source traceability
 
-## Hybrid Retrieval
-
-The retrieval pipeline combines two complementary strategies:
-
-- **BM25** for lexical matches, identifiers, technical terms, and exact phrases.
-- **Vector search** for semantic similarity.
-
-Their raw scores are not directly combined because they represent different scoring systems.
-
-Instead, rankings are fused using **Reciprocal Rank Fusion (RRF)**:
-
-```text
-Query
- ├── BM25
- │
- └── Vector Search
-        │
-        ▼
-       RRF
-        │
-        ▼
- Candidate Pool
-```
-
-RRF combines rank positions rather than assuming BM25 and vector similarity scores are directly comparable.
-
----
-
-## Reranking & Context Selection
-
-Hybrid retrieval produces candidate documents, but first-stage retrieval ranking is not necessarily precise enough for the final LLM context.
-
-Candidates are reranked using:
-
-`cross-encoder/ms-marco-MiniLM-L6-v2`
-
-The Cross-Encoder evaluates the **query and candidate together**, providing a stronger relevance signal over the smaller candidate pool.
-
-The pipeline then applies:
-
-```text
-Hybrid Retrieval
-       ↓
-Exact Deduplication
-       ↓
-Cross-Encoder Reranking
-       ↓
-MMR Context Selection
-       ↓
-Final Context
-```
-
-**Maximal Marginal Relevance (MMR)** balances relevance against redundancy so the final context is not unnecessarily filled with chunks containing nearly identical information.
-
----
-
-## Citations & Provenance
-
-Every indexed chunk carries provenance metadata:
-
-- document identifier,
-- filename,
-- page,
-- chunk identifier.
-
-This metadata survives retrieval, fusion, reranking, deduplication, and context selection.
-
-Selected evidence can be represented to the LLM as:
-
-```text
-[SOURCE 1]
-Provenance:
-- File: employee-handbook.pdf | Page: 2 | Chunk: chunk-002
-
-Content:
-Remote employees must connect to internal company systems
-through the approved VPN service.
-```
-
-The generated answer can reference the evidence using `[1]`, while the application retains structured citation metadata for API or frontend use.
-
-### Provenance-Aware Deduplication
-
-Identical content may appear in multiple documents.
-
-Instead of discarding the additional provenance when duplicate text is removed, the platform represents the content once while preserving all known sources:
-
-```text
-                 ┌─ employee-handbook.pdf
-Unique Content ──┤
-                 └─ employee-handbook-v2.pdf
-```
-
-This reduces redundant context without losing traceability.
-
----
-
-## Grounded Generation
-
-The final selected context is converted into citation-aware input before being sent to the LLM.
-
-```text
-Selected Context
-       ↓
-Citation Builder
-       ↓
-Grounded Generation
-       ↓
-Answer + Citations
-```
-
-The generation layer is instructed to:
-
-- answer using only the provided evidence,
-- cite the sources supporting its claims,
-- avoid unsupported claims,
-- return structured output,
-- indicate when the available evidence is insufficient.
-
-Example:
-
-```text
-Question:
-What is the remote work allowance?
-
-Answer:
-Employees working remotely receive an annual home office
-allowance of 500 USD. [1]
-```
-
-If the retrieved evidence cannot support the requested answer, the system returns a no-answer response with no citations.
-
-This separates **retrieval** from **answerability**: retrieving candidates does not automatically mean the question can be answered from them.
-
-### Structured Output & Citation Validation
-
-Generation uses a typed `GeneratedAnswer` schema:
+Selected contexts are formatted into numbered `[SOURCE n]` blocks with document provenance. Generation uses the OpenAI Responses API and a Pydantic schema:
 
 ```python
-from pydantic import BaseModel
 class GeneratedAnswer(BaseModel):
     answer: str
     answered: bool
     citation_ids: list[int]
 ```
 
-The application validates the response **before** returning it:
+The generator is instructed to answer from the supplied evidence and place inline references such as `[1]` after supported claims. Before returning a result, validation checks that:
 
-- Factual answers must contain inline citations such as `[1]`.
-- Inline citation IDs must match the structured `citation_ids` field.
-- Referenced IDs must exist in the supplied `[SOURCE n]` context.
-- Abstentions must use the required no-answer message with no citations.
+- factual answers contain at least one inline citation;
+- inline citation IDs match the declared `citation_ids`;
+- referenced IDs exist in the supplied context;
+- abstentions use the prescribed message and contain no citations.
 
-If validation fails, the generator collects specific error reasons and retries with the previous answer, declared IDs, and validation feedback. A maximum of **two generation attempts** is allowed; if both fail, a `ValueError` is raised for the caller to handle.
+A failed validation triggers one additional generation attempt with the previous output and specific error feedback. If both attempts fail validation, the generator raises `ValueError`. The final response includes only the source groups actually cited in the answer.
 
-**Scope:** This validator checks citation *consistency and format*. It does **not** prove that every cited source semantically supports every claim. That requires a separate faithfulness evaluation.
-
-
----
-
-## Authentication & Authorization
-
-Authentication uses signed **JWT access tokens**.
-
-Validated token claims are converted into a typed `UserContext`:
+When the supplied evidence is insufficient, the prescribed response is:
 
 ```text
-JWT
- ↓
-Signature + Claim Validation
- ↓
-UserContext
- ├── user_id
- ├── tenant_id
- └── role
+I don't have enough information in the provided sources to answer this question.
 ```
 
-Authentication and authorization remain separate concerns.
+Citation validation checks formatting and ID consistency; it does not establish that a source semantically supports every claim. An empty retrieved context currently raises an error rather than returning this abstention automatically.
 
-The authenticated identity determines the trusted user context, while authorization rules determine which operations that user may perform.
+Implementation: [`src/generation/generator.py`](src/generation/generator.py), [`src/citations/`](src/citations/), and [`src/rag/pipeline.py`](src/rag/pipeline.py).
 
----
+### 5. Authentication and tenant isolation
 
-## Multi-Tenant RAG
+JWT utilities issue and validate HS256 access tokens containing `sub`, `tenant_id`, `role`, `iat`, and `exp`. Validated claims become a typed `UserContext`; roles are `admin` and `employee`. The authorization helper allows document uploads for admins.
 
-Tenant isolation is enforced inside the retrieval pipeline.
+Both BM25 and vector retrieval filter by tenant before fusion, reranking, and generation. Result cache keys also include the tenant so cached responses cannot bypass the retrieval boundary.
 
-Both retrieval branches receive the tenant identifier from the authenticated `UserContext`:
+The sample policies demonstrate the same question under two organizations:
 
-```text
-                 UserContext
-                     │
-                  tenant_id
-                     │
-            ┌────────┴────────┐
-            ▼                 ▼
-          BM25             Vector
-     Tenant Filter      Tenant Filter
-            │                 │
-            └────────┬────────┘
-                     ▼
-                    RRF
-                     ↓
-                 Reranking
-                     ↓
-                    MMR
-                     ↓
-                Generation
-```
+| Tenant | Question | Source policy |
+|---|---|---|
+| ACME | What is the remote work allowance? | 500 USD annually |
+| GLOBEX | What is the remote work allowance? | 2000 USD annually |
 
-Filtering occurs **before or during retrieval**, rather than retrieving globally and removing unauthorized documents afterward.
+The library accepts a `UserContext` directly. A future API must derive that context from a validated token and enforce authorization before invoking ingestion; those checks are not automatically performed by `run_rag()` or `ingest_document()`.
 
-This means another tenant's documents never enter RRF, reranking, context selection, or generation.
+Implementation: [`src/auth/`](src/auth/) and [`evaluation/tests/test_tenant_isolation.py`](evaluation/tests/test_tenant_isolation.py).
 
-## Redis Caching
+### 6. Redis caching and background reliability
 
-Redis caching is used as a performance layer without weakening tenant isolation or retrieval correctness.
+| Layer | Identity / purpose | Default TTL |
+|---|---|---|
+| Query embedding cache | `embedding:<model>:<sha256(text)>` | 3,600 seconds |
+| RAG result cache | Tenant + query + generation model + retrieval limits + MMR weight | 1,800 seconds |
+| Job store | `job:<job_id>` with status and error information | No TTL configured |
 
-Two cache levels are currently implemented:
+The query embedding cache is shared across tenants because its key identifies the same text and embedding model. Batch embeddings used for ingestion and MMR do not use this cache. Redis connection failures during cache reads or writes are logged and allow the pipeline to continue; failed invalidation is also logged and skipped.
 
-```text
-User Query
-    ↓
-RAG Result Cache
- ├── HIT → Answer + Citations
- └── MISS
-       ↓
-   Retrieval
-       ↓
-   Query Embedding
-       ↓
-   Embedding Cache
-    ├── HIT
-    └── MISS → OpenAI Embeddings
-       ↓
- BM25 + Vector → RRF → Rerank → MMR → Generation
-       ↓
- Cache Result
-```
+Celery ingestion tasks retry selected connection, timeout, rate-limit, and server errors with exponential backoff and jitter. They permit three retries after the initial attempt. Missing files and other non-retryable errors mark the job as failed immediately.
 
-### Embedding Cache
+Implementation: [`src/cache/`](src/cache/), [`src/jobs/job_store.py`](src/jobs/job_store.py), and [`src/workers/celery_app.py`](src/workers/celery_app.py).
 
-Single-query embeddings are cached using a deterministic identity:
+## Technology stack
 
-```text
-embedding:<model>:<sha256(text)>
-```
-
-The tenant identifier is intentionally not part of this key because the embedding is determined by the input text and embedding model, not by the tenant that requested it.
-
-### Tenant-Aware RAG Result Cache
-
-Final RAG results are cached using an identity derived from:
-
-- tenant identifier,
-- query,
-- generation model,
-- retrieval limit,
-- final context limit,
-- MMR lambda value.
-
-```text
-rag-result:<tenant_id>:<config-and-query-hash>
-```
-
-Including the tenant in the key prevents a cached result from one tenant from being returned to another tenant before retrieval filters have a chance to run.
-
-Cached values use TTLs to limit their lifetime, but TTL alone is not sufficient when indexed documents change.
-
-### Cache Invalidation
-
-After a document is successfully re-ingested and the new chunks are stored in Qdrant, cached RAG results for that tenant are invalidated:
-
-```text
-Document Re-Ingestion
-        ↓
-Qdrant Updated
-        ↓
-Invalidate rag-result:<tenant_id>:*
-        ↓
-Next Query → Cache MISS
-        ↓
-RAG recomputes from current documents
-```
-
-Invalidation is tenant-scoped: updating an ACME document removes ACME RAG result entries without removing GLOBEX results or reusable embedding-cache entries.
-
----
-
-### Isolation Example
-
-The test dataset contains the same logical policy under two tenants:
-
-```text
-ACME
-remote-work-policy → 500 USD annual allowance
-
-GLOBEX
-remote-work-policy → 2000 USD annual allowance
-```
-
-For the same question:
-
-```text
-"What is the remote work allowance?"
-```
-
-an ACME user receives an answer grounded in `acme-policy.pdf`, while a GLOBEX user receives an answer grounded in `globex-policy.pdf`.
-
-Cross-tenant access is also tested explicitly:
-
-```text
-Authenticated tenant: ACME
-
-Question:
-"What is GLOBEX's remote work allowance?"
-```
-
-GLOBEX documents do not enter the retrieved context, so the generation layer returns a no-answer response instead of exposing the GLOBEX policy.
-
-The query determines **what the user wants to find**; the authenticated context determines **which data the user is allowed to search**.
-
----
-
-## Document Ingestion & Background Processing
-
-The ingestion pipeline currently supports:
-
-- page-aware PDF parsing,
-- configurable chunking and overlap,
-- batch embedding generation,
-- metadata-preserving storage,
-- tenant-aware vector storage,
-- stable UUID-based identifiers,
-- idempotent document re-ingestion,
-- stale chunk removal,
-- tenant-scoped RAG result cache invalidation after successful re-ingestion.
-
-Long-running ingestion can be moved to **Celery workers** using Redis as the broker.
-
-Job states are tracked independently:
-
-```text
-queued → processing → completed
-```
-
-with failure and retry handling for unsuccessful jobs.
-
----
-
-## Validation & Experiments
-
-Individual stages are tested through experiment scripts rather than evaluating the system only from the final LLM answer.
-
-Current multi-tenant validation includes:
-
-```text
-Tenant-Aware Ingestion          ✓
-Vector Retrieval Isolation      ✓
-BM25 Retrieval Isolation        ✓
-Hybrid + RRF Isolation          ✓
-Context Selection Isolation     ✓
-End-to-End RAG Isolation        ✓
-Cross-Tenant Leakage Test       ✓
-Redis Cache HIT / MISS            ✓
-Embedding Cache                   ✓
-Tenant-Aware Result Cache         ✓
-Tenant-Scoped Cache Invalidation  ✓
-Ingestion-Triggered Invalidation  ✓
-```
-
-Experiments are also used to inspect BM25 behavior, lexical vs semantic retrieval, RRF contributions, reranker scores, MMR selection, and citation provenance.
-
-### Generation Evaluation (Day 23)
-
-The `evaluation/` workflow runs the complete RAG pipeline against an **8-case generation dataset**. Scenarios cover tenant-specific policy facts, annual leave, MFA, VPN requirements, a multi-fact question, and an unsupported question requiring abstention.
-
-The deterministic checks currently include:
-
-| Check | What it verifies |
+| Responsibility | Technology |
 |---|---|
-| Expected facts | Required facts or phrases appear in the generated answer |
-| Forbidden facts | Disallowed facts or phrases do not appear |
-| Citation presence | Factual answers include inline citations and citation metadata |
-| Expected documents | Expected source document identifiers appear in the citations |
-| Abstention | Unsupported questions produce the prescribed no-answer response |
+| Application code | Python, asyncio |
+| Generation and embeddings | OpenAI; `text-embedding-3-small` embeddings |
+| Vector storage | Qdrant, cosine similarity, 1,536-dimensional vectors |
+| Lexical search and fusion | `rank-bm25`, custom RRF |
+| Reranking and diversity | Sentence Transformers CrossEncoder, NumPy, custom MMR |
+| Typed output and identity | Pydantic, PyJWT |
+| PDF extraction | pypdf |
+| Cache, broker, and job metadata | Redis |
+| Background processing | Celery |
+| Validation tooling | unittest, JSON evaluation datasets and reports |
 
-The evaluation runner:
+## Project structure
 
-- bypasses the final RAG result cache to exercise generation rather than reuse a cached answer,
-- records each case as `PASS`, `FAIL`, or `ERROR`,
-- continues evaluating other cases when one raises an exception,
-- writes a machine-readable JSON report to `evaluation/results/generation_baseline.json`.
+```text
+enterprise-rag/
+├── src/
+│   ├── auth/           # JWT utilities, roles, user context, authorization
+│   ├── cache/          # Embedding/result caches and tenant invalidation
+│   ├── citations/      # Numbered evidence and source metadata
+│   ├── generation/     # Structured answers, validation, targeted retry
+│   ├── ingestion/      # PDF parsing, chunking, embeddings, ingestion
+│   ├── jobs/           # Redis-backed job status
+│   ├── rag/            # End-to-end question answering orchestration
+│   ├── retrieval/      # BM25, RRF, deduplication, reranking, MMR
+│   ├── vector_store/   # Qdrant collection, storage, filters, search
+│   └── workers/        # Celery ingestion task and retry policy
+├── data/               # Sample policy, handbook, and support PDFs
+├── experiments/        # Incremental development and inspection scripts
+├── evaluation/
+│   ├── tests/          # Unit tests and tenant-isolation integration tests
+│   ├── results/        # Recorded JSON evaluation reports
+│   └── *_runner.py     # Retrieval, ablation, and generation workflows
+├── requirements.txt
+└── README.md
+```
 
-**Latest observed run:** **8/8 PASS, 0 FAIL, 0 ERROR** (pass rate `1.0000`). Seven factual questions needed a second generation attempt to correct missing inline citations; the abstention case passed on the first attempt. These are results from **one run of eight cases**, not a production accuracy guarantee.
+The `experiments/` directory records incremental work on embeddings, retrieval, provenance, authorization, caching, retries, and ingestion. Some early scripts predate the current tenant-aware interfaces; use the entry points below for the main workflow.
 
-**Generator test coverage:** 8 citation-validation tests and 3 mocked asynchronous retry tests. The retry tests cover success on the first attempt, recovery on the second attempt, and failure after both attempts are invalid.
+## Local setup
 
-Run the tests and evaluation from the project root:
+Run commands from the repository root. Local execution requires Python, Docker (for the service examples below), and an OpenAI API key. The first reranker load may download model weights.
+
+### 1. Install Python dependencies
 
 ```bash
-python -m unittest discover -s evaluation/tests -p "test_generator_validation.py" -v
-python -m unittest discover -s evaluation/tests -p "test_generator_retry.py" -v
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m pip install rank-bm25 redis celery pydantic httpx
+```
+
+The second command installs direct dependencies used in the source that are not explicitly listed in the current `requirements.txt`. The repository does not yet provide a complete dependency lockfile.
+
+### 2. Configure environment variables
+
+Create a local `.env` file:
+
+```dotenv
+OPENAI_API_KEY=your-openai-api-key
+JWT_SECRET_KEY=your-generated-secret
+GENERATION_MODEL=gpt-4.1-mini
+```
+
+Generate a JWT secret with `python -c 'import secrets; print(secrets.token_hex(32))'` and use the output as `JWT_SECRET_KEY`. The `.env` file is excluded by `.gitignore`. `GENERATION_MODEL` configures the generation evaluation runner; direct `run_rag()` calls receive their model as an argument.
+
+### 3. Start Qdrant and Redis
+
+These commands create local development containers with named volumes:
+
+```bash
+docker run -d --name enterprise-rag-qdrant \
+  -p 127.0.0.1:6333:6333 \
+  -v enterprise-rag-qdrant-data:/qdrant/storage \
+  qdrant/qdrant
+
+docker run -d --name enterprise-rag-redis \
+  -p 127.0.0.1:6381:6379 \
+  -v enterprise-rag-redis-data:/data \
+  redis:7 redis-server --appendonly yes
+```
+
+If these containers already exist, start them with `docker start enterprise-rag-qdrant enterprise-rag-redis`.
+
+The current source uses fixed local addresses:
+
+| Service | Address / database |
+|---|---|
+| Qdrant | `http://localhost:6333`; collection `enterprise_documents` |
+| Celery broker | `redis://localhost:6381/0` |
+| Job store | Redis port `6381`, database `1` |
+| Embedding and result caches | Redis port `6381`, database `2` |
+
+## Usage
+
+### Ingest the sample tenant documents
+
+```bash
+python -m experiments.tenant_ingestion
+```
+
+This indexes ACME and GLOBEX policy and handbook PDFs. Re-running it replaces the corresponding tenant/document records and invalidates their cached answers. Embedding and generation workflows make OpenAI API calls.
+
+### Ask a question
+
+```python
+import asyncio
+
+from src.auth.models import Role, UserContext
+from src.rag.pipeline import run_rag
+
+
+async def main():
+    user = UserContext(
+        user_id="acme-user-123",
+        tenant_id="acme",
+        role=Role.EMPLOYEE,
+    )
+    result = await run_rag(
+        query="What is the remote work allowance?",
+        model="gpt-4.1-mini",
+        user_context=user,
+        retrieval_limit=5,
+        final_limit=3,
+        lambda_value=0.5,
+        use_cache=True,
+    )
+    print(result)
+
+
+asyncio.run(main())
+```
+
+This local example creates a user context explicitly; an authenticated application should obtain it through `decode_access_token()`.
+
+Illustrative response, with wording dependent on generation:
+
+```json
+{
+  "answer": "Employees receive an annual home office allowance of 500 USD [1].",
+  "citations": [
+    {
+      "citation_id": 1,
+      "sources": [
+        {
+          "document_id": "remote-work-policy",
+          "filename": "acme-policy.pdf",
+          "page": 1,
+          "chunk_id": "chunk-001"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Run background ingestion
+
+Start a worker in one terminal:
+
+```bash
+source .venv/bin/activate
+celery -A src.workers.celery_app:celery_app worker --loglevel=info
+```
+
+Submit the example job in another terminal:
+
+```bash
+python -m experiments.test_background_ingestion
+```
+
+The script creates a job record and queues the ACME handbook as `second-document`. This also provides duplicate content for inspecting provenance-preserving deduplication. The worker must be able to access the submitted PDF path. Inspect its status with `get_job(job_id)` from `src.jobs.job_store`.
+
+## Evaluation and recorded results
+
+Retrieval and generation are evaluated separately so finding relevant evidence is not confused with producing a valid answer.
+
+### Retrieval evaluation
+
+The retrieval dataset contains **24 cases**. Metrics account for all source IDs preserved inside a deduplicated context:
+
+- **Precision@3:** Fraction of the three context slots that match at least one relevant source.
+- **Recall@3:** Fraction of relevant source IDs recovered in those contexts.
+- **MRR:** Mean reciprocal rank of the first relevant context.
+
+Recorded in [`retrieval_baseline.json`](evaluation/results/retrieval_baseline.json) on October 8, 2026 (UTC):
+
+| Cases | Mean Precision@3 | Mean Recall@3 | MRR |
+|---|---|---|---|
+| 24 | 0.3611 | 1.0000 | 0.9375 |
+
+The ablation workflow compares hybrid retrieval with deduplication, then reranking, then MMR on the same dataset. Recorded in [`ablation_results.json`](evaluation/results/ablation_results.json):
+
+| Stage | Mean Precision@3 | Mean Recall@3 | MRR |
+|---|---|---|---|
+| Hybrid + deduplication | 0.3611 | 1.0000 | 0.9583 |
+| + Cross-Encoder reranking | 0.3611 | 1.0000 | 0.9306 |
+| + MMR | 0.3611 | 1.0000 | 0.9375 |
+
+These results do not show a ranking improvement from reranking or MMR on this dataset. They provide a baseline for investigating candidate selection, model suitability, and diversity settings. Precision uses a fixed denominator of three; recall is reported as unavailable for cases without relevant sources and excluded from mean recall.
+
+### Generation evaluation
+
+The generation dataset contains **8 cases**, covering tenant-specific facts, annual leave, MFA, VPN requirements, a multi-fact question, and an unsupported question requiring abstention.
+
+Checks verify expected and forbidden phrases, inline citation presence, cited document IDs, and abstention behavior. The runner bypasses the final result cache, records `PASS`, `FAIL`, or `ERROR` per case, and continues after individual case errors.
+
+Recorded in [`generation_baseline.json`](evaluation/results/generation_baseline.json) on October 9, 2026, using `gpt-4.1-mini`:
+
+| Cases | Passed | Failed | Errors | Pass rate |
+|---|---|---|---|---|
+| 8 | 8 | 0 | 0 | 100% |
+
+These are saved results from a small dataset, not a production accuracy guarantee. Phrase checks and citation consistency do not measure semantic faithfulness or claim-level attribution. Re-running the workflows may produce different results and overwrites their report files.
+
+### Run checks and evaluations
+
+Focused unit tests for generation validation, mocked retry behavior, and generation metrics:
+
+```bash
+python -m unittest discover -s evaluation/tests -p 'test_generator_validation.py' -v
+python -m unittest discover -s evaluation/tests -p 'test_generator_retry.py' -v
+python -m unittest discover -s evaluation/tests -p 'test_generation_metrics.py' -v
+```
+
+The generator tests mock generation requests where needed, but import-time client initialization still requires `OPENAI_API_KEY` to be set.
+
+After starting the services and ingesting the sample documents:
+
+```bash
+python -m unittest discover -s evaluation/tests -p 'test_retrieval_metrics.py' -v
+python -m unittest discover -s evaluation/tests -p 'test_tenant_isolation.py' -v
+python -m evaluation.retrieval_runner
+python -m evaluation.ablation_runner
 python -m evaluation.generation_runner
 ```
 
-The full evaluation uses configured services and the OpenAI API; unit tests mock generation calls where appropriate. The current checks are deliberately lightweight and **do not measure semantic faithfulness, claim-level attribution, or statistical reliability across repeated runs**.
+Tenant-isolation tests exercise live retrieval. Retrieval-related imports initialize the reranker and embedding client, so even metric tests require the model and Python dependencies to be available. Evaluation ground-truth chunk IDs depend on document identity and chunking settings; changes to either require reviewing the datasets.
 
+## Current limitations
 
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Language | Python |
-| LLM | OpenAI |
-| Embeddings | OpenAI `text-embedding-3-small` |
-| Vector Database | Qdrant |
-| Lexical Retrieval | BM25 / `rank-bm25` |
-| Rank Fusion | Reciprocal Rank Fusion |
-| Reranking | Sentence Transformers CrossEncoder |
-| Context Selection | Maximal Marginal Relevance |
-| Authentication | JWT / PyJWT |
-| Validation | Pydantic |
-| Background Processing | Celery |
-| Broker / Job Store / Cache | Redis |
-| PDF Processing | pypdf |
-| Infrastructure | Docker |
-
----
-
-## Current Capabilities
-
-**Ingestion**  
-PDF parsing · chunking · batch embeddings · stable IDs · tenant-aware storage · idempotent re-ingestion
-
-**Retrieval**  
-BM25 · semantic search · hybrid retrieval · RRF
-
-**Retrieval Quality**  
-Cross-Encoder reranking · exact deduplication · provenance-aware deduplication · MMR
-
-**Generation & Traceability**  
-Grounded generation · structured output · no-answer behavior · inline citations · source provenance · citation consistency validation · targeted retry (max 2 attempts)
-
-**Security**  
-JWT authentication · typed user context · role-based authorization · tenant-aware retrieval · cross-tenant isolation
-
-**Processing**  
-Celery background workers · Redis job tracking · retry handling
-
-**Caching**  
-Redis embedding cache · tenant-aware RAG result cache · TTL · configuration-aware cache keys · tenant-scoped invalidation · ingestion-triggered invalidation
-
-**Evaluation & Reliability**  
-8-case generation dataset · expected/forbidden fact checks · citation/document checks · abstention checks · per-case PASS/FAIL/ERROR reporting · JSON reports · mocked retry tests
-
----
+- **Application boundary:** No HTTP API or frontend is implemented. Authentication and authorization utilities must be connected to a trusted request boundary.
+- **BM25 scaling:** The index is rebuilt per query from a single Qdrant scroll page of up to 100 tenant chunks; pagination and a persistent lexical index are not implemented. Empty tenant corpora also need explicit handling.
+- **PDF coverage:** Extraction supports text-based PDFs. OCR for scanned documents is not implemented.
+- **Replacement safety:** Re-ingestion deletes old chunks before upserting new ones. A failure between these operations can leave a document unavailable; replacement is not atomic.
+- **Cache freshness:** Invalidation is best effort. If Redis is unavailable during invalidation, previous cached results can remain until expiry. Cache identity does not version the prompt, reranker, or embedding configuration.
+- **Answer validation:** Citation consistency does not prove source support. Empty evidence and exhausted validation attempts surface errors for the caller to handle.
+- **Operations:** Service addresses are hardcoded, dependencies are not fully pinned, and structured tracing, latency measurement, and cost tracking are pending.
 
 ## Roadmap
 
-```text
-Document Ingestion          ████████████████████  Implemented
-Async Processing            ████████████████████  Implemented
-Hybrid Retrieval            ████████████████████  Implemented
-Reranking & Selection       ████████████████████  Implemented
-Citations & Provenance      ████████████████████  Implemented
-Grounded Generation         ████████████████████  Implemented
-Authentication              ████████████████████  Implemented
-Multi-Tenant RAG            ████████████████████  Implemented
-Caching                     ████████████████████  Implemented
+- [x] Page-aware PDF ingestion and overlapping chunks
+- [x] Tenant-scoped vector storage and document replacement
+- [x] BM25 + vector retrieval with RRF
+- [x] Provenance-preserving deduplication, reranking, and MMR
+- [x] Structured generation, citation validation, and targeted retry
+- [x] JWT utilities and role-based upload authorization helper
+- [x] Tenant-aware result caching and ingestion-triggered invalidation
+- [x] Celery ingestion with job tracking and selective retries
+- [x] Retrieval, ablation, and generation evaluation workflows
+- [ ] Observability and tracing
+- [ ] Latency, token usage, and cost measurement
+- [ ] Authenticated production API
+- [ ] Reproducible dependency and deployment packaging
+- [ ] Persistent lexical indexing and larger-corpus evaluation
+- [ ] Semantic faithfulness and adversarial evaluation
+- [ ] Atomic document replacement and stronger cache versioning
 
-Generation Validation       ████████████████████  Implemented
-Citation-Aware Retry        ████████████████████  Implemented
-Generation Evaluation       ████████████████████  Implemented (8-case baseline)
-
-Observability               ░░░░░░░░░░░░░░░░░░░░  Next — Day 24
-Latency & Cost Tracking     ░░░░░░░░░░░░░░░░░░░░
-Production API              ░░░░░░░░░░░░░░░░░░░░
-Dockerization               ░░░░░░░░░░░░░░░░░░░░
-E2E & Adversarial Testing   ░░░░░░░░░░░░░░░░░░░░
-```
-
----
-
-## Design Philosophy
-
-The project deliberately keeps the major RAG stages explicit:
-
-```text
-authenticate
-     ↓
-retrieve
-     ↓
-fuse
-     ↓
-deduplicate
-     ↓
-rerank
-     ↓
-diversify
-     ↓
-track provenance
-     ↓
-generate
-     ↓
-validate citations / retry
-```
-
-Rather than treating RAG as a single black-box operation, each stage can be inspected and evaluated independently. Generation validation and evaluation are implemented; end-to-end observability and tracing remain planned work.
-
-The long-term goal is not simply to make an LLM answer questions over documents, but to build a RAG system whose **retrieval quality, evidence, permissions, failures, latency, and cost can be measured and systematically improved**.
+The project keeps retrieval, evidence selection, generation, and validation explicit so that their behavior can be inspected and improved independently.

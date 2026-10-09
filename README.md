@@ -2,9 +2,9 @@
 
 A production-oriented **Retrieval-Augmented Generation (RAG)** platform designed to explore the engineering challenges that appear when RAG systems move beyond simple `embed → retrieve → generate` workflows.
 
-The platform combines document ingestion, hybrid retrieval, reranking, diversity-aware context selection, grounded generation, citations, authentication, and tenant-aware retrieval into an explicit and testable pipeline.
+The platform combines document ingestion, hybrid retrieval, reranking, diversity-aware context selection, grounded generation, citations, authentication, tenant-aware retrieval, Redis caching, and automated evaluation into an explicit and testable pipeline.
 
-> **Status:** Active development — the core RAG pipeline, authentication, multi-tenant retrieval isolation, and Redis caching are implemented. Resilience, evaluation, observability, and production API layers are next.
+> **Status:** Active development — completed through **Day 23 (Generation Evaluation)**. Core ingestion, hybrid retrieval, tenant isolation, caching, grounded generation, citation validation, targeted generation retries, and evaluation workflows are implemented. **Next: Day 24 — Observability & Tracing.**
 
 ---
 
@@ -60,6 +60,17 @@ The platform combines document ingestion, hybrid retrieval, reranking, diversity
                         Grounded Generation
                                  │
                                  ▼
+                      Citation Consistency Validation
+                                 │
+                        ┌────────┴────────┐
+                        │                 │
+                      VALID             INVALID
+                        │                 │
+                        │          Targeted Retry
+                        │          (max 2 attempts)
+                        │                 │
+                        │          Revalidate / Error
+                        ▼
                       Answer + Source Citations
 ```
 
@@ -241,6 +252,30 @@ allowance of 500 USD. [1]
 If the retrieved evidence cannot support the requested answer, the system returns a no-answer response with no citations.
 
 This separates **retrieval** from **answerability**: retrieving candidates does not automatically mean the question can be answered from them.
+
+### Structured Output & Citation Validation
+
+Generation uses a typed `GeneratedAnswer` schema:
+
+```python
+from pydantic import BaseModel
+class GeneratedAnswer(BaseModel):
+    answer: str
+    answered: bool
+    citation_ids: list[int]
+```
+
+The application validates the response **before** returning it:
+
+- Factual answers must contain inline citations such as `[1]`.
+- Inline citation IDs must match the structured `citation_ids` field.
+- Referenced IDs must exist in the supplied `[SOURCE n]` context.
+- Abstentions must use the required no-answer message with no citations.
+
+If validation fails, the generator collects specific error reasons and retries with the previous answer, declared IDs, and validation feedback. A maximum of **two generation attempts** is allowed; if both fail, a `ValueError` is raised for the caller to handle.
+
+**Scope:** This validator checks citation *consistency and format*. It does **not** prove that every cited source semantically supports every claim. That requires a separate faithfulness evaluation.
+
 
 ---
 
@@ -457,6 +492,42 @@ Ingestion-Triggered Invalidation  ✓
 
 Experiments are also used to inspect BM25 behavior, lexical vs semantic retrieval, RRF contributions, reranker scores, MMR selection, and citation provenance.
 
+### Generation Evaluation (Day 23)
+
+The `evaluation/` workflow runs the complete RAG pipeline against an **8-case generation dataset**. Scenarios cover tenant-specific policy facts, annual leave, MFA, VPN requirements, a multi-fact question, and an unsupported question requiring abstention.
+
+The deterministic checks currently include:
+
+| Check | What it verifies |
+|---|---|
+| Expected facts | Required facts or phrases appear in the generated answer |
+| Forbidden facts | Disallowed facts or phrases do not appear |
+| Citation presence | Factual answers include inline citations and citation metadata |
+| Expected documents | Expected source document identifiers appear in the citations |
+| Abstention | Unsupported questions produce the prescribed no-answer response |
+
+The evaluation runner:
+
+- bypasses the final RAG result cache to exercise generation rather than reuse a cached answer,
+- records each case as `PASS`, `FAIL`, or `ERROR`,
+- continues evaluating other cases when one raises an exception,
+- writes a machine-readable JSON report to `evaluation/results/generation_baseline.json`.
+
+**Latest observed run:** **8/8 PASS, 0 FAIL, 0 ERROR** (pass rate `1.0000`). Seven factual questions needed a second generation attempt to correct missing inline citations; the abstention case passed on the first attempt. These are results from **one run of eight cases**, not a production accuracy guarantee.
+
+**Generator test coverage:** 8 citation-validation tests and 3 mocked asynchronous retry tests. The retry tests cover success on the first attempt, recovery on the second attempt, and failure after both attempts are invalid.
+
+Run the tests and evaluation from the project root:
+
+```bash
+python -m unittest discover -s evaluation/tests -p "test_generator_validation.py" -v
+python -m unittest discover -s evaluation/tests -p "test_generator_retry.py" -v
+python -m evaluation.generation_runner
+```
+
+The full evaluation uses configured services and the OpenAI API; unit tests mock generation calls where appropriate. The current checks are deliberately lightweight and **do not measure semantic faithfulness, claim-level attribution, or statistical reliability across repeated runs**.
+
+
 ---
 
 ## Tech Stack
@@ -492,7 +563,7 @@ BM25 · semantic search · hybrid retrieval · RRF
 Cross-Encoder reranking · exact deduplication · provenance-aware deduplication · MMR
 
 **Generation & Traceability**  
-Grounded generation · structured output · no-answer behavior · citations · source provenance
+Grounded generation · structured output · no-answer behavior · inline citations · source provenance · citation consistency validation · targeted retry (max 2 attempts)
 
 **Security**  
 JWT authentication · typed user context · role-based authorization · tenant-aware retrieval · cross-tenant isolation
@@ -502,6 +573,9 @@ Celery background workers · Redis job tracking · retry handling
 
 **Caching**  
 Redis embedding cache · tenant-aware RAG result cache · TTL · configuration-aware cache keys · tenant-scoped invalidation · ingestion-triggered invalidation
+
+**Evaluation & Reliability**  
+8-case generation dataset · expected/forbidden fact checks · citation/document checks · abstention checks · per-case PASS/FAIL/ERROR reporting · JSON reports · mocked retry tests
 
 ---
 
@@ -518,9 +592,11 @@ Authentication              █████████████████�
 Multi-Tenant RAG            ████████████████████  Implemented
 Caching                     ████████████████████  Implemented
 
-Resilience                  ░░░░░░░░░░░░░░░░░░░░  Next
-Evaluation                  ░░░░░░░░░░░░░░░░░░░░
-Observability               ░░░░░░░░░░░░░░░░░░░░
+Generation Validation       ████████████████████  Implemented
+Citation-Aware Retry        ████████████████████  Implemented
+Generation Evaluation       ████████████████████  Implemented (8-case baseline)
+
+Observability               ░░░░░░░░░░░░░░░░░░░░  Next — Day 24
 Latency & Cost Tracking     ░░░░░░░░░░░░░░░░░░░░
 Production API              ░░░░░░░░░░░░░░░░░░░░
 Dockerization               ░░░░░░░░░░░░░░░░░░░░
@@ -546,11 +622,13 @@ rerank
      ↓
 diversify
      ↓
-trace
+track provenance
      ↓
 generate
+     ↓
+validate citations / retry
 ```
 
-Rather than treating RAG as a single black-box operation, each stage can be inspected and evaluated independently.
+Rather than treating RAG as a single black-box operation, each stage can be inspected and evaluated independently. Generation validation and evaluation are implemented; end-to-end observability and tracing remain planned work.
 
 The long-term goal is not simply to make an LLM answer questions over documents, but to build a RAG system whose **retrieval quality, evidence, permissions, failures, latency, and cost can be measured and systematically improved**.

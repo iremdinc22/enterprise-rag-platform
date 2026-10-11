@@ -2,7 +2,7 @@
 
 **Enterprise RAG** is a Python project that indexes enterprise PDF documents and generates source-backed answers while keeping each organization's documents within its own tenant boundary.
 
-I developed document ingestion, hybrid retrieval, context selection, and answer generation as separate components, then added tenant isolation, JWT utilities, Redis caching, background ingestion with Celery, and evaluation workflows. The goal was to make it possible to inspect **which information the system can access, which evidence it uses, and how well each stage performs**.
+I developed document ingestion, hybrid retrieval, context selection, and answer generation as separate components, then added tenant isolation, JWT utilities, Redis caching, background ingestion with Celery, evaluation workflows, OpenTelemetry tracing, and query-level performance and cost tracking. The goal was to make it possible to inspect **which information the system can access, which evidence it uses, and how well each stage performs**.
 
 > **Current status:** The core workflows run through Python modules and experiment scripts. An HTTP API, user interface, and production deployment package have not yet been implemented.
 
@@ -14,6 +14,8 @@ I developed document ingestion, hybrid retrieval, context selection, and answer 
 - **Background ingestion:** Page-aware PDF indexing with Celery, Redis job tracking, and selective retries.
 - **Retrieval evaluation:** 24 cases; recorded mean Recall@3 of 1.0000 and MRR of 0.9375.
 - **Generation evaluation:** 8/8 cases passed in the saved baseline; small-dataset results, not a general accuracy estimate.
+- **Observability:** OpenTelemetry spans across retrieval, generation, citations, and caching, with per-query token and estimated API cost tracking.
+- **Performance benchmarking:** End-to-end latency, p50/p95, and cache-status-separated measurements saved as JSON.
 
 ## 1. The Problem
 
@@ -44,6 +46,9 @@ This distinction is carried into both retrieval filters and the result cache. Th
 | Caching | Query embedding cache and tenant-scoped answer cache | Reduce repeated computation |
 | Background processing | Celery tasks, Redis job tracking, and selective retries | Process documents outside the synchronous application path |
 | Evaluation | Retrieval, ablation, and generation reports | Measure behavior and compare pipeline stages |
+| Distributed tracing foundation | OpenTelemetry root and child spans for the RAG pipeline | Locate latency and failures across stages |
+| Usage and cost accounting | Per-query generation/embedding tokens, cache events, and model-price estimates | Quantify incremental API consumption, including retries |
+| Performance benchmarking | Sequential query runner, latency percentiles, cache-status breakdown, JSON reports | Compare execution paths without conflating cache HIT and uncached work |
 
 ## 3. How the System Works
 
@@ -131,11 +136,23 @@ Query embeddings are reusable across tenants for identical text and models; answ
 
 Celery handles ingestion while Redis tracks `queued`, `processing`, `retrying`, `completed`, and `failed` states. Selected connection, timeout, rate-limit, and server errors allow three retries after the initial attempt, using exponential backoff and jitter. Non-retryable errors such as missing files fail immediately.
 
+### OpenTelemetry Tracing and Query-Level Accounting
+
+OpenTelemetry instruments the answer pipeline with a root `rag.query` span and nested spans for cache lookup, context selection, citation preparation, generation, and cache writes. Retrieval spans cover BM25, query embeddings, vector search, RRF, deduplication, Cross-Encoder reranking, candidate embeddings, and MMR. Generation spans capture individual attempts and citation validation, so retry overhead can be inspected rather than hidden behind a single answer.
+
+Tracing is opt-in via `RAG_TRACING_ENABLED=true`. The development configuration exports spans to the console; the performance runner uses an in-memory exporter. A hosted trace backend and persistent observability dashboard are not implemented.
+
+The `QueryUsage` collector uses a Python `ContextVar` to aggregate usage from separate embedding and generation modules for one asynchronous RAG invocation. The `rag.query` span records generation attempts, input/output and cached-input tokens, embedding API calls/cache hits, total API tokens, and estimated USD costs. The collector is reset when the invocation completes. An answer-cache HIT does not run retrieval or generation and therefore records zero *new* OpenAI API usage.
+
+Cost estimates use recorded API token usage and model-specific rates in `src/observability/costs.py` for `gpt-4.1-mini` and `text-embedding-3-small`. They include all recorded generation attempts, including citation-validation retries, but do not include Redis/Qdrant infrastructure or hosting costs. Rates may change; these values are estimates, not provider invoices. If an API response omits usage data, the corresponding tokens cannot be counted.
+
+**Relevant code:** [`src/observability/tracing.py`](src/observability/tracing.py), [`usage_tracker.py`](src/observability/usage_tracker.py), [`costs.py`](src/observability/costs.py), [`src/rag/pipeline.py`](src/rag/pipeline.py), [`src/generation/generator.py`](src/generation/generator.py), and [`src/ingestion/embedder.py`](src/ingestion/embedder.py).
+
 ## 5. Evaluation and Findings
 
 I created separate datasets and reports for retrieval and generation. Finding relevant evidence and producing a valid, source-backed answer are different outcomes, so I measured them separately.
 
-The numbers below come from reports already saved in the repository. Live evaluations were not rerun as part of this README update.
+The retrieval and generation numbers below are recorded baselines. The performance measurements in Section 5.4 come from local runs on October 11, 2026; they are not production load-test results.
 
 ### 5.1. Retrieval: Is the Relevant Evidence Found?
 
@@ -179,6 +196,23 @@ Checks examine expected phrases, forbidden phrases, inline citations, expected d
 
 This is a recorded run on a small dataset, not a general accuracy estimate. Current checks use phrase matching and citation consistency; they do not measure semantic faithfulness or support for every individual claim.
 
+### 5.4. Performance and Cache Behavior
+
+The sequential performance runner measures each `run_rag()` call with `perf_counter()` and reads query-level usage from the completed OpenTelemetry `rag.query` span. It reports mean, interpolated p50/p95, generation attempts, embedding API activity, and estimated cost. Results are grouped by **actual** cache status (`BYPASSED`, `MISS`, `HIT`) and separately by benchmark stage (`result_cache_bypassed`, `cache_warmup`, `result_cache_hit_check`). A warmup stage may itself be a HIT if the answer was cached by an earlier run.
+
+A local two-question cache-comparison run on **October 11, 2026** produced:
+
+| Actual result-cache status | Executions | Mean latency | p50 | p95 | New API tokens | Estimated new API cost |
+|---|---:|---:|---:|---:|---:|---:|
+| BYPASSED | 2 | 4,071.01 ms | 4,071.01 ms | 5,035.83 ms | 2,790 | $0.00122048 |
+| HIT | 4 | 5.90 ms | 5.50 ms | 9.23 ms | 0 | $0 |
+
+Both bypassed questions needed a second generation attempt after the first answer omitted inline citations: **4 generation attempts for 2 questions**, with 2 additional attempts. This illustrates how validation retries can increase latency and cost even when the final answers pass validation.
+
+In an earlier four-question result-cache-bypassed run, mean latency was **2,780.38 ms**, p50 **2,558.99 ms**, p95 **4,003.37 ms**, with **4,096 API tokens** and **$0.00174188** estimated API cost. These measurements depend on query mix, model variability, warmed components, and embedding-cache state. `use_cache=False` bypasses the *answer cache*, not the query-embedding cache. The small sample sizes make percentile values illustrative rather than statistically reliable production SLOs.
+
+**Runner:** [`evaluation/performance_runner.py`](evaluation/performance_runner.py). **Generated report:** [`evaluation/results/performance_baseline.json`](evaluation/results/performance_baseline.json). The runner overwrites this file on each execution, so its contents reflect the latest run, not necessarily the example above.
+
 ## 6. Where to Start Reviewing the Code
 
 | Review goal | Starting point |
@@ -190,6 +224,8 @@ This is a recorded run on a small dataset, not a general accuracy estimate. Curr
 | Inspect citation validation and retry | [`src/generation/generator.py`](src/generation/generator.py) |
 | Check tenant filters and document replacement | [`src/vector_store/qdrant_store.py`](src/vector_store/qdrant_store.py) |
 | Understand evaluation methodology | [`evaluation/retrieval_runner.py`](evaluation/retrieval_runner.py), [`generation_runner.py`](evaluation/generation_runner.py) |
+| Inspect traces and usage aggregation | [`src/observability/tracing.py`](src/observability/tracing.py), [`usage_tracker.py`](src/observability/usage_tracker.py) |
+| Review token pricing and performance tests | [`src/observability/costs.py`](src/observability/costs.py), [`evaluation/performance_runner.py`](evaluation/performance_runner.py) |
 
 ```text
 src/          Reusable application components
@@ -204,7 +240,7 @@ The `experiments/` directory also records development history. Some older script
 
 ### Technology Stack
 
-Python · OpenAI Responses API · `text-embedding-3-small` · Qdrant · `rank-bm25` · Sentence Transformers · NumPy · Pydantic · PyJWT · pypdf · Redis · Celery · unittest
+Python · OpenAI Responses API · `text-embedding-3-small` · Qdrant · `rank-bm25` · Sentence Transformers · NumPy · Pydantic · PyJWT · pypdf · Redis · Celery · OpenTelemetry · unittest
 
 The Qdrant collection uses 1,536-dimensional vectors and cosine similarity. Service addresses are currently fixed in the source code.
 
@@ -226,6 +262,7 @@ Create a local `.env` file:
 OPENAI_API_KEY=your-openai-api-key
 JWT_SECRET_KEY=your-generated-secret
 GENERATION_MODEL=gpt-4.1-mini
+RAG_TRACING_ENABLED=false
 ```
 
 Generate a JWT secret with `python -c 'import secrets; print(secrets.token_hex(32))'`. The `.env` file is excluded from Git. `GENERATION_MODEL` configures the generation evaluation runner; direct `run_rag()` calls receive the model as an argument.
@@ -345,6 +382,24 @@ python -m evaluation.generation_runner
 
 Tenant tests exercise live retrieval. The retrieval metric tests' import chain also initializes the embedding client and reranker. Evaluation runners overwrite their JSON reports. If chunking settings or document IDs change, review the expected source IDs in the datasets.
 
+### 7.6. Inspect Traces and Benchmark Performance
+
+To print OpenTelemetry spans while running the generation evaluation:
+
+```bash
+RAG_TRACING_ENABLED=true python -m evaluation.generation_runner
+```
+
+To run the sequential performance benchmark (which installs its own in-memory span exporter):
+
+```bash
+python -m evaluation.performance_runner --limit 2
+python -m evaluation.performance_runner --limit 2 --compare-cache
+python -m evaluation.performance_runner --limit 4
+```
+
+`--compare-cache` executes each question with answer caching bypassed, then performs a cache-enabled preparation request and a follow-up cache check. Cache preparation may return `HIT` when Redis already contains the answer. The runner separates statistics by actual cache status, writes `evaluation/results/performance_baseline.json`, and makes live OpenAI API requests when retrieval/generation is required. Keep `RAG_TRACING_ENABLED=false` for this runner to avoid enabling a competing console tracer provider. These are small local smoke benchmarks, not throughput or concurrency tests.
+
 ## 8. Current Limitations and Next Steps
 
 The project currently provides a working engineering foundation for developing and evaluating the RAG workflow. The following areas remain before production deployment:
@@ -358,7 +413,9 @@ The project currently provides a working engineering foundation for developing a
 | Empty context and exhausted validation attempts raise errors | Explicit API-level error and abstention contracts |
 | JWT and role utilities are not connected to an HTTP boundary | Authenticated API and enforced authorization |
 | PDF extraction does not include OCR | Scanned-document processing |
-| Logging consists of development diagnostics | Tracing, latency, token usage, and cost measurement |
+| Tracing currently uses console/in-memory exporters; no persistent telemetry backend or alerting | Add trace storage, dashboards, alerting, and production telemetry hygiene |
+| Performance samples are small, sequential, and sensitive to cache state | Larger repeatable workloads, isolated cache scenarios, concurrency tests, and defined SLOs |
+| Citation formatting sometimes requires a second generation attempt | Improve citation adherence and measure retry rate on broader workloads |
 | Dependencies are not fully pinned and deployment packaging is absent | Reproducible installation and deployment configuration |
 
 ## 9. Key Engineering Takeaways
@@ -369,3 +426,6 @@ The project currently provides a working engineering foundation for developing a
 - **Deduplication should retain provenance.** Merging repeated text reduces redundant context while preserving the documents behind the evidence.
 - **Citation consistency is only one validation layer.** Valid source IDs make answers traceable, but semantic faithfulness and claim-level support require separate evaluation.
 - **Reliability includes state transitions and freshness.** Job tracking and selective retries expose ingestion failures; non-atomic document replacement and best-effort cache invalidation remain explicit improvement areas.
+- **Trace individual stages, not just total latency.** OpenTelemetry spans help distinguish retrieval, reranking, generation, and validation overhead.
+- **Count retries and cache behavior in cost analysis.** A single question can consume multiple generation attempts, while an answer-cache HIT avoids new model calls.
+- **Do not mix cache HIT and uncached latency in one performance claim.** Grouping by actual cache status makes local benchmarks easier to interpret.

@@ -1,3 +1,4 @@
+
 import os
 import re
 
@@ -6,6 +7,8 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel
 
 from src.observability.tracing import get_tracer
+from src.observability.costs import estimate_generation_cost
+from src.observability.usage_tracker import record_generation_usage
 
 
 class GeneratedAnswer(BaseModel):
@@ -205,7 +208,11 @@ async def generate_answer(query, context, model):
     Generate a grounded answer and validate citation consistency.
 
     Retry once with targeted validation feedback if needed.
-    Record generation attempts and citation validation as spans.
+
+    Record generation attempts, token usage, estimated API cost,
+    and citation validation as OpenTelemetry spans.
+
+    Aggregate usage in the active query-level collector.
     """
     tracer = get_tracer()
 
@@ -243,6 +250,59 @@ async def generate_answer(query, context, model):
                 input=user_input,
                 text_format=GeneratedAnswer,
             )
+
+            # Day 25: Track token usage and estimated API cost
+            usage = response.usage
+
+            if usage is not None:
+                input_tokens = usage.input_tokens
+                output_tokens = usage.output_tokens
+
+                input_details = usage.input_tokens_details
+
+                cached_input_tokens = (
+                    input_details.cached_tokens
+                    if input_details is not None
+                    else 0
+                ) or 0
+
+                estimated_cost = estimate_generation_cost(
+                    model=model,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    cached_input_tokens=cached_input_tokens,
+                )
+
+                # Aggregate this attempt's usage at query level.
+                # Record before citation validation so retries
+                # also contribute to total API cost.
+                record_generation_usage(
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    cached_input_tokens=cached_input_tokens,
+                    cost_usd=estimated_cost,
+                )
+
+                attempt_span.set_attribute(
+                    "llm.input_tokens",
+                    input_tokens,
+                )
+                attempt_span.set_attribute(
+                    "llm.output_tokens",
+                    output_tokens,
+                )
+                attempt_span.set_attribute(
+                    "llm.total_tokens",
+                    usage.total_tokens,
+                )
+                attempt_span.set_attribute(
+                    "llm.cached_input_tokens",
+                    cached_input_tokens,
+                )
+                attempt_span.set_attribute(
+                    "llm.estimated_cost_usd",
+                    float(estimated_cost),
+                )
 
             generation = response.output_parsed
 

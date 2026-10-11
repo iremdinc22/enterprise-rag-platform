@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-11T09:32:03.305994+00:00",
+  "generated_at": "2026-10-11T13:16:55.012833+00:00",
   "model": "gpt-4.1-mini",
   "retrieval_limit": 5,
   "final_limit": 3,
@@ -16,7 +16,7 @@
       "tenant_id": "acme",
       "query": "What is the remote work allowance?",
       "expected_answer": "ACME employees receive a 500 USD remote work allowance.",
-      "generated_answer": "The remote work allowance is an annual home office allowance of 500 USD, which employees working remotely can use for office equipment and internet-related expenses [1].",
+      "generated_answer": "The remote work allowance is an annual home office allowance of 500 USD provided to employees working remotely. This allowance may be used for office equipment and internet-related expenses [1].",
       "citations": [
         {
           "citation_id": 1,
@@ -130,7 +130,7 @@
       "tenant_id": "acme",
       "query": "How many days of annual leave do ACME employees receive?",
       "expected_answer": "ACME employees receive 20 days of annual leave.",
-      "generated_answer": "ACME employees receive 20 days of annual leave each year according to the Annual Leave Policy [1].",
+      "generated_answer": "ACME employees receive 20 days of annual leave [1].",
       "citations": [
         {
           "citation_id": 1,
@@ -194,7 +194,7 @@
       "tenant_id": "globex",
       "query": "How many days of annual leave do GLOBEX employees receive?",
       "expected_answer": "GLOBEX employees receive 25 days of annual leave.",
-      "generated_answer": "GLOBEX employees receive 25 days of annual leave according to the company's Annual Leave Policy.[1]",
+      "generated_answer": "GLOBEX employees receive 25 days of annual leave [1].",
       "citations": [
         {
           "citation_id": 1,
@@ -251,7 +251,7 @@
       "tenant_id": "globex",
       "query": "Is multi-factor authentication mandatory for GLOBEX employees?",
       "expected_answer": "GLOBEX employees must use multi-factor authentication when accessing company systems.",
-      "generated_answer": "Yes, multi-factor authentication is mandatory for GLOBEX employees when accessing company systems as stated in the Security Policy.[1]",
+      "generated_answer": "Yes, multi-factor authentication is mandatory for GLOBEX employees when accessing company systems according to the company's security policy [1].",
       "citations": [
         {
           "citation_id": 1,
@@ -308,7 +308,7 @@
       "tenant_id": "acme",
       "query": "What must ACME employees use to access company systems remotely?",
       "expected_answer": "ACME employees must use the approved VPN when accessing company systems remotely.",
-      "generated_answer": "ACME employees must use the approved VPN service to access company systems remotely. They are also advised to avoid using public or unsecured networks when connecting remotely [2].",
+      "generated_answer": "ACME employees must use the approved VPN service to connect to internal company systems when working remotely. Additionally, employees are advised to avoid using public or unsecured networks for these connections to ensure security [2].",
       "citations": [
         {
           "citation_id": 2,
@@ -372,7 +372,7 @@
       "tenant_id": "acme",
       "query": "How many days per week can ACME employees work remotely, and what must they use to access company systems?",
       "expected_answer": "ACME employees can work remotely up to two days per week and must use the approved VPN to access company systems.",
-      "generated_answer": "ACME employees can work remotely up to two days per week. When working remotely, they must connect to internal company systems through the approved VPN service to ensure secure access.[1]",
+      "generated_answer": "ACME employees can work remotely up to two days per week. To access company systems while working remotely, they must connect through the approved VPN service.[1]",
       "citations": [
         {
           "citation_id": 1,

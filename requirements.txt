@@ -10,3 +10,5 @@ redis
 celery
 pydantic
 httpx
+opentelemetry-api==1.45.1
+opentelemetry-sdk==1.45.1

@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 
+from src.observability.tracing import get_tracer
+
 
 class GeneratedAnswer(BaseModel):
     answer: str
@@ -203,7 +205,10 @@ async def generate_answer(query, context, model):
     Generate a grounded answer and validate citation consistency.
 
     Retry once with targeted validation feedback if needed.
+    Record generation attempts and citation validation as spans.
     """
+    tracer = get_tracer()
+
     base_user_input = build_user_input(
         query=query,
         context=context,
@@ -219,42 +224,100 @@ async def generate_answer(query, context, model):
     user_input = base_user_input
 
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
-        response = await client.responses.parse(
-            model=model,
-            instructions=SYSTEM_INSTRUCTIONS,
-            input=user_input,
-            text_format=GeneratedAnswer,
-        )
-
-        generation = response.output_parsed
-
-        if generation is None:
-            raise ValueError(
-                "Model returned no parsed generation"
+        with tracer.start_as_current_span(
+            "generation.attempt"
+        ) as attempt_span:
+            attempt_span.set_attribute(
+                "generation.attempt_number",
+                attempt,
+            )
+            attempt_span.set_attribute(
+                "generation.model",
+                model,
             )
 
-        validation_errors = get_citation_validation_errors(
-            generation,
-            available_source_ids,
-        )
-
-        if not validation_errors:
-            return generation
-
-        print_validation_debug(
-            generation=generation,
-            available_source_ids=available_source_ids,
-            attempt=attempt,
-            validation_errors=validation_errors,
-        )
-
-        if attempt < MAX_GENERATION_ATTEMPTS:
-            error_details = "\n".join(
-                f"- {error}"
-                for error in validation_errors
+            # Call the LLM and parse the structured response
+            response = await client.responses.parse(
+                model=model,
+                instructions=SYSTEM_INSTRUCTIONS,
+                input=user_input,
+                text_format=GeneratedAnswer,
             )
 
-            user_input = base_user_input + f"""
+            generation = response.output_parsed
+
+            if generation is None:
+                raise ValueError(
+                    "Model returned no parsed generation"
+                )
+
+            # Validate citation consistency and abstention
+            with tracer.start_as_current_span(
+                "citation.validation"
+            ) as validation_span:
+                validation_errors = get_citation_validation_errors(
+                    generation,
+                    available_source_ids,
+                )
+
+                validation_passed = not validation_errors
+
+                validation_span.set_attribute(
+                    "citation.validation_passed",
+                    validation_passed,
+                )
+                validation_span.set_attribute(
+                    "citation.validation_error_count",
+                    len(validation_errors),
+                )
+                validation_span.set_attribute(
+                    "citation.available_source_count",
+                    len(available_source_ids),
+                )
+
+            attempt_span.set_attribute(
+                "generation.validation_passed",
+                validation_passed,
+            )
+            attempt_span.set_attribute(
+                "generation.answered",
+                generation.answered,
+            )
+            attempt_span.set_attribute(
+                "generation.citation_count",
+                len(generation.citation_ids),
+            )
+
+            # Return immediately when validation succeeds
+            if validation_passed:
+                return generation
+
+            # Record the failed validation as an event
+            attempt_span.add_event(
+                "generation.citation_validation_failed",
+                {
+                    "generation.attempt_number": attempt,
+                    "citation.validation_error_count": len(
+                        validation_errors
+                    ),
+                },
+            )
+
+            print_validation_debug(
+                generation=generation,
+                available_source_ids=available_source_ids,
+                attempt=attempt,
+                validation_errors=validation_errors,
+            )
+
+            # Retry with targeted feedback
+            if attempt < MAX_GENERATION_ATTEMPTS:
+                error_details = "\n".join(
+                    f"- {error}"
+                    for error in validation_errors
+                )
+
+                user_input = base_user_input + f"""
 
 Your previous response failed citation validation.
 

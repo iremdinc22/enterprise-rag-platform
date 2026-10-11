@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from src.auth.models import Role, UserContext
 from src.rag.pipeline import run_rag
 from evaluation.generation_metrics import evaluate_generation
+from src.observability.tracing import configure_tracing
 
 
 load_dotenv()
@@ -199,4 +200,5 @@ async def main():
 
 
 if __name__ == "__main__":
+    configure_tracing()
     asyncio.run(main())

@@ -1,4 +1,5 @@
 from src.ingestion.embedder import create_embedding
+from src.observability.tracing import get_tracer
 from src.retrieval.bm25_retriever import search_bm25
 from src.vector_store.qdrant_store import search_chunks
 
@@ -89,26 +90,75 @@ async def hybrid_search(
     final_limit=3,
     rrf_k=60
 ):
-    bm25_results = await search_bm25(
-        query=query,
-        tenant_id=tenant_id,
-        limit=retrieval_limit
-    )
+    tracer = get_tracer()
 
-    query_embedding = await create_embedding(
-        query
-    )
+    # BM25 lexical retrieval
+    with tracer.start_as_current_span(
+        "retrieval.bm25"
+    ) as span:
+        bm25_results = await search_bm25(
+            query=query,
+            tenant_id=tenant_id,
+            limit=retrieval_limit
+        )
 
-    vector_results = await search_chunks(
-        query_vector=query_embedding,
-        tenant_id=tenant_id,
-        limit=retrieval_limit
-    )
+        span.set_attribute(
+            "retrieval.bm25_result_count",
+            len(bm25_results)
+        )
 
-    fused_results = reciprocal_rank_fusion(
-        bm25_results=bm25_results,
-        vector_results=vector_results,
-        k=rrf_k
-    )
+    # Create query embedding
+    with tracer.start_as_current_span(
+        "retrieval.query_embedding"
+    ) as span:
+        query_embedding = await create_embedding(
+            query
+        )
 
-    return fused_results[:final_limit]
+        span.set_attribute(
+            "retrieval.embedding_dimensions",
+            len(query_embedding)
+        )
+
+    # Qdrant vector retrieval
+    with tracer.start_as_current_span(
+        "retrieval.vector"
+    ) as span:
+        vector_results = await search_chunks(
+            query_vector=query_embedding,
+            tenant_id=tenant_id,
+            limit=retrieval_limit
+        )
+
+        span.set_attribute(
+            "retrieval.vector_result_count",
+            len(vector_results)
+        )
+
+    # Reciprocal Rank Fusion
+    with tracer.start_as_current_span(
+        "retrieval.rrf"
+    ) as span:
+        fused_results = reciprocal_rank_fusion(
+            bm25_results=bm25_results,
+            vector_results=vector_results,
+            k=rrf_k
+        )
+
+        span.set_attribute(
+            "retrieval.rrf_k",
+            rrf_k
+        )
+        span.set_attribute(
+            "retrieval.fused_candidate_count",
+            len(fused_results)
+        )
+
+        final_results = fused_results[:final_limit]
+
+        span.set_attribute(
+            "retrieval.returned_candidate_count",
+            len(final_results)
+        )
+
+    return final_results

@@ -1,4 +1,6 @@
+
 from src.ingestion.embedder import create_embeddings
+from src.observability.tracing import get_tracer
 from src.retrieval.deduplicator import deduplicate_exact
 from src.retrieval.hybrid_retriever import hybrid_search
 from src.retrieval.mmr import select_with_mmr
@@ -33,36 +35,74 @@ async def select_context(
             "final_limit cannot be greater than retrieval_limit"
         )
 
-    # Retrieve tenant-scoped candidates using lexical + semantic search
-    hybrid_results = await hybrid_search(
-        query=query,
-        tenant_id=tenant_id,
-        retrieval_limit=retrieval_limit,
-        final_limit=retrieval_limit
-    )
+    tracer = get_tracer()
+
+    # Retrieve tenant-scoped candidates
+    with tracer.start_as_current_span(
+        "retrieval.hybrid_search"
+    ) as span:
+        hybrid_results = await hybrid_search(
+            query=query,
+            tenant_id=tenant_id,
+            retrieval_limit=retrieval_limit,
+            final_limit=retrieval_limit
+        )
+
+        span.set_attribute(
+            "retrieval.hybrid_candidate_count",
+            len(hybrid_results)
+        )
 
     # Remove exact duplicate chunks
-    unique_candidates = deduplicate_exact(
-        hybrid_results
-    )
+    with tracer.start_as_current_span(
+        "retrieval.deduplication"
+    ) as span:
+        unique_candidates = deduplicate_exact(
+            hybrid_results
+        )
+
+        span.set_attribute(
+            "retrieval.unique_candidate_count",
+            len(unique_candidates)
+        )
+        span.set_attribute(
+            "retrieval.duplicates_removed",
+            len(hybrid_results) - len(unique_candidates)
+        )
 
     if not unique_candidates:
         return []
 
     # Refine candidate relevance
-    reranked_candidates = rerank(
-        query=query,
-        candidates=unique_candidates,
-        limit=len(unique_candidates)
-    )
+    with tracer.start_as_current_span(
+        "retrieval.reranking"
+    ) as span:
+        reranked_candidates = rerank(
+            query=query,
+            candidates=unique_candidates,
+            limit=len(unique_candidates)
+        )
 
-    # Create embeddings for candidate-to-candidate similarity
+        span.set_attribute(
+            "retrieval.reranked_candidate_count",
+            len(reranked_candidates)
+        )
+
+    # Create embeddings for MMR
     texts = [
         candidate["text"]
         for candidate in reranked_candidates
     ]
 
-    embeddings = await create_embeddings(texts)
+    with tracer.start_as_current_span(
+        "retrieval.candidate_embeddings"
+    ) as span:
+        embeddings = await create_embeddings(texts)
+
+        span.set_attribute(
+            "retrieval.embedding_count",
+            len(embeddings)
+        )
 
     for candidate, embedding in zip(
         reranked_candidates,
@@ -70,11 +110,23 @@ async def select_context(
     ):
         candidate["embedding"] = embedding
 
-    # Select relevant but non-redundant final context
-    selected_context = select_with_mmr(
-        candidates=reranked_candidates,
-        limit=final_limit,
-        lambda_value=lambda_value
-    )
+    # Select final context with MMR
+    with tracer.start_as_current_span(
+        "retrieval.mmr"
+    ) as span:
+        selected_context = select_with_mmr(
+            candidates=reranked_candidates,
+            limit=final_limit,
+            lambda_value=lambda_value
+        )
+
+        span.set_attribute(
+            "retrieval.selected_context_count",
+            len(selected_context)
+        )
+        span.set_attribute(
+            "retrieval.mmr_lambda",
+            lambda_value
+        )
 
     return selected_context

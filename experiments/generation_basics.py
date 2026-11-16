@@ -31,7 +31,8 @@ async def main():
     answer = await generate_answer(
         query=query,
         context=citation_context,
-        model="gpt-5-mini"
+        model="gpt-5-mini",
+        citations=citations
     )
 
     citation_response = build_citation_response(

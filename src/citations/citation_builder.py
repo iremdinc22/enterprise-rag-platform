@@ -1,3 +1,15 @@
+def authorized_citation_ids(citations):
+    """Read IDs only from builder-owned groups, never source text/provenance."""
+    ids = set()
+    for citation in citations:
+        citation_id = citation["citation_id"]
+        if (type(citation_id) is not int or citation_id <= 0 or citation_id in ids
+                or not isinstance(citation.get("sources"), list) or not citation["sources"]):
+            raise ValueError("Invalid trusted citation group")
+        ids.add(citation_id)
+    return ids
+
+
 def build_citations(contexts):
     if not contexts:
         return []

@@ -38,6 +38,7 @@ class TestGeneratorRetry(unittest.IsolatedAsyncioTestCase):
         result = await generate_answer(
             query="How many days of annual leave do ACME employees receive?",
             context=TEST_CONTEXT,
+            citations=[{"citation_id": 1, "sources": [{"document_id": "policy"}]}],
             model="gpt-4.1-mini",
         )
 
@@ -63,6 +64,7 @@ class TestGeneratorRetry(unittest.IsolatedAsyncioTestCase):
         result = await generate_answer(
             query="How many days of annual leave do ACME employees receive?",
             context=TEST_CONTEXT,
+            citations=[{"citation_id": 1, "sources": [{"document_id": "policy"}]}],
             model="gpt-4.1-mini",
         )
 
@@ -101,6 +103,7 @@ class TestGeneratorRetry(unittest.IsolatedAsyncioTestCase):
             await generate_answer(
                 query="How many days of annual leave do ACME employees receive?",
                 context=TEST_CONTEXT,
+                citations=[{"citation_id": 1, "sources": [{"document_id": "policy"}]}],
                 model="gpt-4.1-mini",
             )
 

@@ -5,6 +5,7 @@ from src.retrieval.deduplicator import deduplicate_exact
 from src.retrieval.hybrid_retriever import hybrid_search
 from src.retrieval.mmr import select_with_mmr
 from src.retrieval.reranker import rerank
+from src.rag.execution import run_blocking
 
 
 async def select_context(
@@ -83,7 +84,8 @@ async def select_context(
         record_exception=False,
         set_status_on_exception=False,
     ) as span:
-        reranked_candidates = rerank(
+        reranked_candidates = await run_blocking(
+            rerank,
             query=query,
             candidates=unique_candidates,
             limit=len(unique_candidates)

@@ -22,6 +22,7 @@ if not INSTALLED:
     raise RuntimeError("Use the dedicated E2E runner; direct suite import is forbidden")
 
 from src.api.main import create_app
+from src.api.resource_limits import QueryLimits
 from src.auth.jwt_handler import create_access_token
 from src.cache import result_cache, embedding_cache
 from src.jobs import job_store
@@ -69,7 +70,11 @@ class EndToEnd(unittest.TestCase):
         sock = socket.socket()
         sock.bind(("127.0.0.1", 0))
         cls.url = f"http://127.0.0.1:{sock.getsockname()[1]}"
-        cls.server = uvicorn.Server(uvicorn.Config(create_app(), log_level="error", access_log=False))
+        # This multi-scenario fixture exercises service integration, not demo
+        # throttling. Rate/quota boundaries have separate fake-clock API tests.
+        app = create_app(limits=QueryLimits(tenant_rate_limit=1000, global_rate_limit=1000,
+                                          demo_max_queries=1000))
+        cls.server = uvicorn.Server(uvicorn.Config(app, log_level="error", access_log=False))
         def serve():
             asyncio.set_event_loop(cls.loop)
             cls.loop.run_until_complete(cls.server.serve(sockets=[sock]))

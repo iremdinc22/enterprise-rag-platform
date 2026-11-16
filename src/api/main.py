@@ -9,7 +9,11 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.api.dependencies import authenticated_user, get_pipeline
 from src.api.schemas import QueryRequest, QueryResponse
+from src.api.resource_limits import QueryAdmission, QueryBodyLimit, QueryDeadline, QueryLimits
 from src.auth.models import UserContext
+from src.rag.execution import (
+    api_query_execution, check_deadline, ProviderTimeout, ProviderUnavailable, QueryDeadlineExceeded,
+)
 from src.observability.tracing import configure_tracing
 
 
@@ -30,8 +34,13 @@ async def lifespan(app):
     yield
 
 
-def create_app():
+def create_app(*, limits=None, admission_clock=None):
+    limits = limits if limits is not None else QueryLimits.from_env()
     app = FastAPI(title="Enterprise RAG API", version="1.0.0", lifespan=lifespan)
+    app.add_middleware(QueryBodyLimit, limits=limits)
+    app.add_middleware(QueryDeadline, limits=limits)
+    admission = QueryAdmission(limits, clock=admission_clock)
+    app.state.query_admission = admission
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request, exc):
@@ -56,15 +65,29 @@ def create_app():
         user: UserContext = Depends(authenticated_user),
         pipeline=Depends(get_pipeline),
     ):
+        check_deadline()
+        admission.acquire(user.tenant_id)
+        execution_token = api_query_execution.set(True)
         try:
             result = await pipeline(
                 **body.model_dump(),
                 model=os.getenv("GENERATION_MODEL", "gpt-4.1-mini"),
                 user_context=user,
             )
-            return QueryResponse.model_validate(result)
+            result = QueryResponse.model_validate(result)
+            check_deadline()
+            return result
+        except QueryDeadlineExceeded:
+            raise HTTPException(504, "Query deadline exceeded") from None
+        except ProviderTimeout:
+            raise HTTPException(504, "Upstream request timed out") from None
+        except ProviderUnavailable:
+            raise HTTPException(503, "Generation service temporarily unavailable") from None
         except Exception:
             raise HTTPException(500, "Query processing failed") from None
+        finally:
+            api_query_execution.reset(execution_token)
+            admission.release()
 
     @app.get("/health")
     async def health():

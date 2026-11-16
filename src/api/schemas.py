@@ -4,9 +4,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 class QueryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    query: str = Field(min_length=1, max_length=8000)
-    retrieval_limit: int = Field(default=5, ge=1, le=100)
-    final_limit: int = Field(default=3, ge=1, le=100)
+    query: str = Field(min_length=1, max_length=2000)
+    retrieval_limit: int = Field(default=5, ge=1, le=10)
+    final_limit: int = Field(default=3, ge=1, le=3)
     lambda_value: float = Field(default=0.5, ge=0, le=1)
     use_cache: bool = True
 

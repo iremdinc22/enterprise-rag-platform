@@ -1,4 +1,5 @@
 from sentence_transformers import CrossEncoder
+from threading import Lock
 
 
 from src.config import RERANKER_MODEL, RERANKER_REVISION
@@ -6,6 +7,7 @@ from src.config import RERANKER_MODEL, RERANKER_REVISION
 MODEL_NAME = RERANKER_MODEL
 
 model = CrossEncoder(MODEL_NAME, revision=RERANKER_REVISION)
+_model_lock = Lock()
 
 
 def rerank(query, candidates, limit=3):
@@ -23,7 +25,8 @@ def rerank(query, candidates, limit=3):
         for candidate in candidates
     ]
 
-    scores = model.predict(pairs)
+    with _model_lock:
+        scores = model.predict(pairs)
 
     reranked_candidates = []
 

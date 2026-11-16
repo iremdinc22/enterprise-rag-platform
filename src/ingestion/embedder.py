@@ -2,9 +2,10 @@
 import os
 
 from dotenv import load_dotenv
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, Timeout
 
 from src.config import EMBEDDING_MODEL
+from src.rag.execution import api_query_execution, provider_request, query_http_client, run_blocking
 from src.cache.embedding_cache import (
     cache_embedding,
     get_cached_embedding,
@@ -23,6 +24,12 @@ client = AsyncOpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
     timeout=20.0,
     max_retries=1,
+)
+
+# Ingestion keeps its existing client/retry policy; query calls use this one.
+query_client = AsyncOpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"), max_retries=0, timeout=Timeout(20.0, connect=5.0),
+    http_client=query_http_client(),
 )
 
 
@@ -44,7 +51,8 @@ async def create_embedding(
         span.set_attribute("embedding.input_count", 1)
 
         # Check Redis embedding cache
-        cached_embedding = get_cached_embedding(
+        cached_embedding = await run_blocking(
+            get_cached_embedding,
             text=text,
             model=model,
         )
@@ -72,7 +80,8 @@ async def create_embedding(
         span.set_attribute("embedding.cache_hit", False)
 
         # Request embedding from OpenAI
-        response = await client.embeddings.create(
+        response = await provider_request(
+            query_client.embeddings.create,
             model=model,
             input=text,
         )
@@ -112,7 +121,8 @@ async def create_embedding(
         embedding = response.data[0].embedding
 
         # Save embedding to Redis cache
-        cache_embedding(
+        await run_blocking(
+            cache_embedding,
             text=text,
             model=model,
             embedding=embedding,
@@ -150,10 +160,10 @@ async def create_embeddings(
         span.set_attribute("embedding.cache_hit", False)
 
         # Request embeddings for the entire batch
-        response = await client.embeddings.create(
-            model=model,
-            input=texts,
-        )
+        if api_query_execution.get():
+            response = await provider_request(query_client.embeddings.create, model=model, input=texts)
+        else:
+            response = await client.embeddings.create(model=model, input=texts)
 
         span.set_attribute("embedding.api_called", True)
 

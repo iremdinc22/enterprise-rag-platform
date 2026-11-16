@@ -83,6 +83,14 @@ Use `config --quiet` for validation.
 | --- | --- | --- |
 | `OPENAI_API_KEY` | Required for provider clients | Required; validity/quota not checked by readiness |
 | `JWT_SECRET_KEY` | Required for token verification | Required; HS256 verification |
+| `API_MAX_BODY_BYTES` | `32768` | API request body byte limit |
+| `API_BODY_TIMEOUT_SECONDS` | `5` | Total query body receive deadline |
+| `API_QUERY_DEADLINE_SECONDS` | `60` | API-only absolute query deadline; blocking cleanup can delay 504 |
+| `API_MAX_ACTIVE_QUERIES` | `2` | Local API admission slots; no waiting queue |
+| `API_TENANT_RATE_LIMIT` | `6` | Accepted queries per verified tenant/window |
+| `API_GLOBAL_RATE_LIMIT` | `12` | Accepted queries globally/window |
+| `API_RATE_WINDOW_SECONDS` | `60` | Rolling admission window; monotonic time |
+| `API_DEMO_MAX_QUERIES` | `50` | Accepted queries per app process lifetime; no refunds |
 | `API_PORT` | Set by Uvicorn CLI | Host port, default `8001` |
 | `APP_IMAGE` | Not applicable | `enterprise-rag-app:day27` |
 | `QDRANT_URL` | `http://localhost:6333` | Explicitly `http://qdrant:6333` |
@@ -102,6 +110,11 @@ Compose overrides host database URLs deliberately. Shell variables override env
 file values. Keep Redis DBs 0/1/2 separate. A different embedding model is not a
 configuration-only migration: dimensions, indexed vectors, and pricing support
 must be considered separately. Do not change the existing corpus for deployment.
+
+Admission counters are in memory and assume one application instance per process,
+as in the provided deployment. Restart/recreating the application resets them;
+workers/replicas multiply the allowances. They do not coordinate with Celery,
+other provider clients, or provider billing. Existing env files are not changed.
 
 ## Safe first-time startup
 

@@ -71,6 +71,13 @@ temporary container storage; existing source PDFs and collections are not used.
 | Metadata validation | Invalid page metadata rejection and test-owned restoration |
 | Network policy | Public DNS and literal-IP denial |
 
+The service-integration fixture explicitly uses higher test-only rate/quota limits
+(1000) to run all scenarios in one application. Default admission policy is tested
+separately with a fake monotonic clock in `tests/test_query_admission.py`; production
+defaults are unchanged. Those network-free tests cover rolling tenant/global limits,
+lifetime accounting, atomic concurrent admission, no refunds, and rejection before
+pipeline work.
+
 There are **18 scenarios**. The test worker uses one task per child to isolate
 existing process-global async client lifecycles; this is a test-only setting, not
 a production fix. Cleanup is limited to owned collection, job IDs and exact cache

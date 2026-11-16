@@ -1,4 +1,5 @@
 def format_citation_context(citations):
+    """Render untrusted source content/provenance; output is not an ID authority."""
     if not citations:
         return ""
 

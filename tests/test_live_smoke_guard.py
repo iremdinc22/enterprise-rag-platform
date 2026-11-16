@@ -215,7 +215,10 @@ class GuardTests(unittest.IsolatedAsyncioTestCase):
             client = sdk_client(self.ledger, self.transport)
         self.provider.mode = "citation_retry"
         with patch.object(generator, "client", client):
-            result = await generator.generate_answer("Allowance?", "[SOURCE 1]\n500 USD", "gpt-4.1-mini")
+            result = await generator.generate_answer(
+                "Allowance?", "[SOURCE 1]\n500 USD", "gpt-4.1-mini",
+                citations=[{"citation_id": 1, "sources": [{"document_id": "policy"}]}],
+            )
         self.assertEqual(result.citation_ids, [1])
         self.assertEqual(self.ledger.counts["generation"], 2)
         self.assertEqual(self.ledger.counts["count"], 2)

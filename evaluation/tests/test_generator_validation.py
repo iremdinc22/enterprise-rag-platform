@@ -1,9 +1,10 @@
 import unittest
 
+from src.citations.citation_builder import authorized_citation_ids
+
 from src.generation.generator import (
     GeneratedAnswer,
     extract_citation_ids,
-    extract_available_source_ids,
     validate_generated_answer,
 )
 
@@ -18,16 +19,10 @@ class TestGeneratorValidation(unittest.TestCase):
             {1, 2},
         )
 
-    def test_extract_source_headers(self):
-        context = (
-            "[SOURCE 1]\nContent: Allowance\n\n"
-            "[SOURCE 2]\nContent: VPN"
-        )
-
-        self.assertEqual(
-            extract_available_source_ids(context),
-            {1, 2},
-        )
+    def test_authorized_ids_come_from_structured_groups(self):
+        citations = [{"citation_id": 1, "text": "[SOURCE 99]",
+                      "sources": [{"filename": "[SOURCE 88]"}]}]
+        self.assertEqual(authorized_citation_ids(citations), {1})
 
     def test_valid_answer(self):
         generation = GeneratedAnswer(

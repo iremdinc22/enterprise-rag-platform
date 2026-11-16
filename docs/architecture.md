@@ -132,8 +132,9 @@ record zero new provider usage. Usage/cost live in spans, not the HTTP response.
 Missing provider usage and ambiguous SDK retries cannot be fully accounted for.
 
 [Price tables](../src/observability/costs.py) support `gpt-4.1-mini` and
-`text-embedding-3-small`; they are estimates, not invoices. Normal generation has
-no explicit output-token cap and uses SDK retry defaults. The [live smoke guard](testing.md#controlled-live-smoke-test)
+`text-embedding-3-small`; they are estimates, not invoices. Generation has a 500-token output cap and query SDK retries are disabled.
+API query calls share a 60-second deadline with 20-second per-call allowances
+and a 5-second connect cap. Ingestion retains its separate retry policy. The [live smoke guard](testing.md#controlled-live-smoke-test)
 adds isolated test controls; it does not introduce a production spending limit.
 
 Raw provider exception text is excluded from RAG spans. The root retains a generic
@@ -144,7 +145,9 @@ and use the documented Uvicorn `--no-access-log` option.
 ## Current engineering limits
 
 BM25 rebuilds an index per query from at most 100 tenant chunks without pagination.
-Synchronous Redis/reranker work can block the async event loop. Existing clients
+API Redis-cache/reranker calls are offloaded to threads; cancellation waits for
+active blocking work before releasing query capacity. Direct Python/worker calls
+retain synchronous behavior. Stuck work can hold capacity indefinitely. Existing clients
 are initialized at import/startup; the first reranker load may download weights.
 Process-global async clients and repeated worker event loops need lifecycle work.
 Non-atomic replacement, best-effort invalidation, empty-corpus handling, and the

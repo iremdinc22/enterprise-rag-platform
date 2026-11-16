@@ -7,11 +7,17 @@ from src.cache.result_cache import (
     get_cached_result,
 )
 from src.citations.citation_builder import (
+    authorized_citation_ids,
     build_citations,
     build_citation_response,
 )
 from src.citations.context_formatter import format_citation_context
-from src.generation.generator import generate_answer
+from src.generation.generator import (
+    ABSTENTION_MESSAGE,
+    extract_citation_ids,
+    generate_answer,
+    validate_generated_answer,
+)
 from src.observability.tracing import get_tracer
 from src.observability.usage_tracker import (
     start_query_usage,
@@ -19,6 +25,15 @@ from src.observability.usage_tracker import (
     reset_query_usage,
 )
 from src.retrieval.context_selector import select_context
+from src.rag.execution import run_blocking
+
+
+def validate_citation_response(result):
+    """Require every inline reference to map to an actual returned source group."""
+    inline_ids = extract_citation_ids(result["answer"])
+    if (inline_ids != authorized_citation_ids(result["citations"])
+            or (not inline_ids and result["answer"].strip() != ABSTENTION_MESSAGE)):
+        raise ValueError("Answer citations do not match returned citation groups")
 
 
 async def run_rag(
@@ -63,7 +78,8 @@ async def run_rag(
                         record_exception=False,
                         set_status_on_exception=False,
                     ) as span:
-                        cached_result = get_cached_result(
+                        cached_result = await run_blocking(
+                            get_cached_result,
                             tenant_id=user_context.tenant_id,
                             query=query,
                             model=model,
@@ -73,6 +89,7 @@ async def run_rag(
                         )
 
                         if cached_result is not None:
+                            validate_citation_response(cached_result)
                             span.set_attribute(
                                 "cache.status",
                                 "HIT",
@@ -148,7 +165,11 @@ async def run_rag(
                         query=query,
                         context=citation_context,
                         model=model,
+                        citations=citations,
                     )
+
+                    if not validate_generated_answer(generation, authorized_citation_ids(citations)):
+                        raise ValueError("Generation failed citation consistency validation")
 
                     span.set_attribute(
                         "generation.answered",
@@ -178,6 +199,7 @@ async def run_rag(
                     "answer": generation.answer,
                     "citations": citation_response,
                 }
+                validate_citation_response(result)
 
                 # Save result to cache
                 if use_cache:
@@ -186,7 +208,8 @@ async def run_rag(
                         record_exception=False,
                         set_status_on_exception=False,
                     ):
-                        cache_result(
+                        await run_blocking(
+                            cache_result,
                             tenant_id=user_context.tenant_id,
                             query=query,
                             model=model,

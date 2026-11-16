@@ -94,7 +94,9 @@ async def hybrid_search(
 
     # BM25 lexical retrieval
     with tracer.start_as_current_span(
-        "retrieval.bm25"
+        "retrieval.bm25",
+        record_exception=False,
+        set_status_on_exception=False,
     ) as span:
         bm25_results = await search_bm25(
             query=query,
@@ -109,7 +111,9 @@ async def hybrid_search(
 
     # Create query embedding
     with tracer.start_as_current_span(
-        "retrieval.query_embedding"
+        "retrieval.query_embedding",
+        record_exception=False,
+        set_status_on_exception=False,
     ) as span:
         query_embedding = await create_embedding(
             query
@@ -122,7 +126,9 @@ async def hybrid_search(
 
     # Qdrant vector retrieval
     with tracer.start_as_current_span(
-        "retrieval.vector"
+        "retrieval.vector",
+        record_exception=False,
+        set_status_on_exception=False,
     ) as span:
         vector_results = await search_chunks(
             query_vector=query_embedding,
@@ -137,7 +143,9 @@ async def hybrid_search(
 
     # Reciprocal Rank Fusion
     with tracer.start_as_current_span(
-        "retrieval.rrf"
+        "retrieval.rrf",
+        record_exception=False,
+        set_status_on_exception=False,
     ) as span:
         fused_results = reciprocal_rank_fusion(
             bm25_results=bm25_results,

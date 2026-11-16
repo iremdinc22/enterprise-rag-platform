@@ -38,5 +38,7 @@ def configure_tracing() -> bool:
     return True
 
 
+# RAG spans disable automatic exception recording at call sites because provider
+# exceptions may contain request content. The root retains a safe ERROR status.
 def get_tracer():
     return trace.get_tracer(SERVICE_NAME)

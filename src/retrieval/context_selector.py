@@ -39,7 +39,9 @@ async def select_context(
 
     # Retrieve tenant-scoped candidates
     with tracer.start_as_current_span(
-        "retrieval.hybrid_search"
+        "retrieval.hybrid_search",
+        record_exception=False,
+        set_status_on_exception=False,
     ) as span:
         hybrid_results = await hybrid_search(
             query=query,
@@ -55,7 +57,9 @@ async def select_context(
 
     # Remove exact duplicate chunks
     with tracer.start_as_current_span(
-        "retrieval.deduplication"
+        "retrieval.deduplication",
+        record_exception=False,
+        set_status_on_exception=False,
     ) as span:
         unique_candidates = deduplicate_exact(
             hybrid_results
@@ -75,7 +79,9 @@ async def select_context(
 
     # Refine candidate relevance
     with tracer.start_as_current_span(
-        "retrieval.reranking"
+        "retrieval.reranking",
+        record_exception=False,
+        set_status_on_exception=False,
     ) as span:
         reranked_candidates = rerank(
             query=query,
@@ -95,7 +101,9 @@ async def select_context(
     ]
 
     with tracer.start_as_current_span(
-        "retrieval.candidate_embeddings"
+        "retrieval.candidate_embeddings",
+        record_exception=False,
+        set_status_on_exception=False,
     ) as span:
         embeddings = await create_embeddings(texts)
 
@@ -112,7 +120,9 @@ async def select_context(
 
     # Select final context with MMR
     with tracer.start_as_current_span(
-        "retrieval.mmr"
+        "retrieval.mmr",
+        record_exception=False,
+        set_status_on_exception=False,
     ) as span:
         selected_context = select_with_mmr(
             candidates=reranked_candidates,

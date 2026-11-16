@@ -16,6 +16,7 @@ ACME employees receive 20 days of annual leave.
 
 def mock_response(answer, answered, citation_ids):
     return SimpleNamespace(
+        usage=None,
         output_parsed=GeneratedAnswer(
             answer=answer,
             answered=answered,

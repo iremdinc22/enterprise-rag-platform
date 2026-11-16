@@ -35,7 +35,9 @@ async def create_embedding(
     tracer = get_tracer()
 
     with tracer.start_as_current_span(
-        "embedding.single"
+        "embedding.single",
+        record_exception=False,
+        set_status_on_exception=False,
     ) as span:
         span.set_attribute("embedding.model", model)
         span.set_attribute("embedding.input_count", 1)
@@ -133,7 +135,9 @@ async def create_embeddings(
     tracer = get_tracer()
 
     with tracer.start_as_current_span(
-        "embedding.batch"
+        "embedding.batch",
+        record_exception=False,
+        set_status_on_exception=False,
     ) as span:
         span.set_attribute("embedding.model", model)
         span.set_attribute(

@@ -36,7 +36,11 @@ async def run_rag(
     usage_token = start_query_usage()
 
     try:
-        with tracer.start_as_current_span("rag.query") as root_span:
+        with tracer.start_as_current_span(
+            "rag.query",
+            record_exception=False,
+            set_status_on_exception=False,
+        ) as root_span:
             root_span.set_attribute("rag.model", model)
             root_span.set_attribute(
                 "rag.retrieval_limit",
@@ -55,7 +59,9 @@ async def run_rag(
                 # Check result cache
                 if use_cache:
                     with tracer.start_as_current_span(
-                        "cache.lookup"
+                        "cache.lookup",
+                        record_exception=False,
+                        set_status_on_exception=False,
                     ) as span:
                         cached_result = get_cached_result(
                             tenant_id=user_context.tenant_id,
@@ -98,7 +104,9 @@ async def run_rag(
 
                 # Retrieve relevant contexts
                 with tracer.start_as_current_span(
-                    "retrieval.context_selection"
+                    "retrieval.context_selection",
+                    record_exception=False,
+                    set_status_on_exception=False,
                 ) as span:
                     contexts = await select_context(
                         query=query,
@@ -115,7 +123,9 @@ async def run_rag(
 
                 # Build citations
                 with tracer.start_as_current_span(
-                    "citations.build"
+                    "citations.build",
+                    record_exception=False,
+                    set_status_on_exception=False,
                 ) as span:
                     citations = build_citations(contexts)
 
@@ -130,7 +140,9 @@ async def run_rag(
 
                 # Generate answer
                 with tracer.start_as_current_span(
-                    "generation.answer"
+                    "generation.answer",
+                    record_exception=False,
+                    set_status_on_exception=False,
                 ) as span:
                     generation = await generate_answer(
                         query=query,
@@ -170,7 +182,9 @@ async def run_rag(
                 # Save result to cache
                 if use_cache:
                     with tracer.start_as_current_span(
-                        "cache.write"
+                        "cache.write",
+                        record_exception=False,
+                        set_status_on_exception=False,
                     ):
                         cache_result(
                             tenant_id=user_context.tenant_id,
@@ -193,10 +207,9 @@ async def run_rag(
 
                 return result
 
-            except Exception as exc:
-                root_span.record_exception(exc)
+            except Exception:
                 root_span.set_status(
-                    Status(StatusCode.ERROR, str(exc))
+                    Status(StatusCode.ERROR, "Query processing failed")
                 )
                 raise
 

@@ -176,31 +176,9 @@ def print_validation_debug(
     validation_errors,
 ):
     """
-    Print diagnostic information when citation validation fails.
-
-    Intended for local development, not production logging.
+    Report a failed attempt without exposing generated content.
     """
-    answer = generation.answer.strip()
-
-    print(
-        f"\nCitation validation failed "
-        f"(attempt {attempt}/{MAX_GENERATION_ATTEMPTS})"
-    )
-
-    print("Generated answer:", repr(generation.answer))
-    print("Answered:", generation.answered)
-    print("Declared citation IDs:", generation.citation_ids)
-    print(
-        "Inline citation IDs:",
-        sorted(extract_citation_ids(answer)),
-    )
-    print(
-        "Available source IDs:",
-        sorted(available_source_ids),
-    )
-
-    for error in validation_errors:
-        print(f"Validation reason: {error}")
+    print(f"Citation validation failed (attempt {attempt}/{MAX_GENERATION_ATTEMPTS})")
 
 
 async def generate_answer(query, context, model):
@@ -232,7 +210,9 @@ async def generate_answer(query, context, model):
 
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
         with tracer.start_as_current_span(
-            "generation.attempt"
+            "generation.attempt",
+            record_exception=False,
+            set_status_on_exception=False,
         ) as attempt_span:
             attempt_span.set_attribute(
                 "generation.attempt_number",
@@ -313,7 +293,9 @@ async def generate_answer(query, context, model):
 
             # Validate citation consistency and abstention
             with tracer.start_as_current_span(
-                "citation.validation"
+                "citation.validation",
+                record_exception=False,
+                set_status_on_exception=False,
             ) as validation_span:
                 validation_errors = get_citation_validation_errors(
                     generation,

@@ -43,8 +43,8 @@ def get_cached_embedding(
     try:
         cached_value = redis_client.get(key)
 
-    except RedisError as error:
-        print(f"Embedding cache unavailable: {error}")
+    except RedisError:
+        print("Embedding cache unavailable")
         return None
 
     if cached_value is None:
@@ -70,5 +70,5 @@ def cache_embedding(
             ex=EMBEDDING_CACHE_TTL
         )
 
-    except RedisError as error:
-        print(f"Embedding cache write skipped: {error}")
+    except RedisError:
+        print("Embedding cache write skipped")

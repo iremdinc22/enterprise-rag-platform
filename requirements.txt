@@ -8,7 +8,9 @@ PyJWT
 rank-bm25
 redis
 celery
-pydantic
+pydantic>=2.9,<3
 httpx
 opentelemetry-api==1.45.1
 opentelemetry-sdk==1.45.1
+fastapi>=0.115,<1
+uvicorn>=0.30,<1

@@ -4,10 +4,11 @@
 
 I developed document ingestion, hybrid retrieval, context selection, and answer generation as separate components, then added tenant isolation, JWT utilities, Redis caching, background ingestion with Celery, evaluation workflows, OpenTelemetry tracing, and query-level performance and cost tracking. The goal was to make it possible to inspect **which information the system can access, which evidence it uses, and how well each stage performs**.
 
-> **Current status:** The core workflows run through Python modules and experiment scripts. An HTTP API, user interface, and production deployment package have not yet been implemented.
+> **Current status:** The core workflows include an authenticated FastAPI query API (Day 26). See [API audit, setup, tests, and limitations](docs/day26-api.md). A user interface and production deployment package have not yet been implemented.
 
 ## Highlights
 
+- **Authenticated query API:** FastAPI endpoint with verified JWT tenant identity, typed schemas, health/readiness checks, and safe errors.
 - **Multi-tenant isolation:** Tenant filters in lexical/vector retrieval and tenant-scoped result cache keys.
 - **Hybrid retrieval:** BM25 + vector search fused with RRF, followed by source-preserving deduplication, reranking, and MMR.
 - **Citation validation:** Structured answers, inline/source ID consistency checks, and one feedback-driven retry.
@@ -121,7 +122,7 @@ Invalid output triggers one retry with the previous response and specific valida
 
 Tenant filtering happens inside BM25 loading and Qdrant vector retrieval, before fusion or generation. JWT utilities validate user, tenant, role, and expiration claims into `UserContext`; an authorization helper restricts uploads to admins.
 
-`run_rag()` trusts its supplied context, and ingestion does not invoke the role helper automatically. A future API must validate tokens and enforce authorization before calling these pipelines.
+`run_rag()` trusts its supplied context. The FastAPI query endpoint validates JWT Bearer tokens with the existing authentication utilities and derives tenant identity exclusively from verified claims. Request bodies cannot supply a tenant ID, and headers or URL parameters cannot override the token tenant. Both employee and admin roles may query. Ingestion does not invoke the role helper automatically and has no HTTP endpoint yet.
 
 ### Two Cache Layers
 
@@ -240,7 +241,7 @@ The `experiments/` directory also records development history. Some older script
 
 ### Technology Stack
 
-Python · OpenAI Responses API · `text-embedding-3-small` · Qdrant · `rank-bm25` · Sentence Transformers · NumPy · Pydantic · PyJWT · pypdf · Redis · Celery · OpenTelemetry · unittest
+Python · FastAPI · Uvicorn · OpenAI Responses API · `text-embedding-3-small` · Qdrant · `rank-bm25` · Sentence Transformers · NumPy · Pydantic · PyJWT · pypdf · Redis · Celery · OpenTelemetry · unittest
 
 The Qdrant collection uses 1,536-dimensional vectors and cosine similarity. Service addresses are currently fixed in the source code.
 
@@ -265,7 +266,7 @@ GENERATION_MODEL=gpt-4.1-mini
 RAG_TRACING_ENABLED=false
 ```
 
-Generate a JWT secret with `python -c 'import secrets; print(secrets.token_hex(32))'`. The `.env` file is excluded from Git. `GENERATION_MODEL` configures the generation evaluation runner; direct `run_rag()` calls receive the model as an argument.
+Generate a JWT secret with `python -c 'import secrets; print(secrets.token_hex(32))'`. The `.env` file is excluded from Git. `GENERATION_MODEL` configures the API and generation evaluation runner; the API defaults to `gpt-4.1-mini`. Direct `run_rag()` calls receive the model as an argument.
 
 ### 7.2. Start the Services
 
@@ -283,7 +284,7 @@ docker run -d --name enterprise-rag-redis \
   redis:7 redis-server --appendonly yes
 ```
 
-If these containers already exist, use `docker start enterprise-rag-qdrant enterprise-rag-redis`. Redis database `0` is the Celery broker, `1` stores job states, and `2` stores caches.
+These `docker run` commands are fresh-install examples. The verified local environment already uses Qdrant container `stupefied_dewdney` and Redis container `enterprise-rag-redis`; use `docker start stupefied_dewdney enterprise-rag-redis` if they are stopped. Do not recreate existing containers or the `enterprise_documents` collection. Redis database `0` is the Celery broker, `1` stores job states, and `2` stores caches.
 
 ### 7.3. Index Sample Documents and Ask a Question
 
@@ -342,7 +343,51 @@ Illustrative response format; generated wording may vary:
 }
 ```
 
-### 7.4. Run Background Ingestion
+### 7.4. Run the FastAPI Query API
+
+With the environment configured and existing services running, start from the repository root:
+
+```bash
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8001 --no-access-log
+```
+
+Use **8001** in the verified local environment because Portainer occupies port 8000. The listening port is selected by Uvicorn's `--port` option; the application does not hardcode it. Qdrant remains at `localhost:6333` with collection `enterprise_documents`, and Redis remains at `localhost:6381`. Startup initializes the existing pipeline clients and reranker; the first model load may download weights.
+
+| Endpoint | Authentication | Behavior |
+|---|---|---|
+| `POST /api/v1/query` | JWT Bearer token | Returns an answer and citation groups using only the verified tenant's evidence |
+| `GET /health` | Public | Liveness, HTTP 200 |
+| `GET /ready` | Public | Qdrant collection check, HTTP 200 or generic 503; optional Redis caching does not gate readiness |
+| `GET /docs` | Public | Swagger UI with Bearer authorization |
+| `GET /openapi.json` | Public | API schema |
+
+Set `JWT_SECRET_KEY` and `OPENAI_API_KEY` through the environment or ignored local `.env`. Obtain a short-lived token from a trusted administrator and send `Authorization: Bearer <token>`; no token issuance endpoint is included. Tokens must contain `sub`, `tenant_id`, `role`, `iat`, and `exp`, have a valid HS256 signature and expiration, and identify an employee or admin with nonblank user/tenant IDs. Never put tokens in URLs or logs.
+
+Example JSON request body:
+
+```json
+{
+  "query": "What is the remote work allowance?",
+  "retrieval_limit": 5,
+  "final_limit": 3,
+  "lambda_value": 0.5,
+  "use_cache": true
+}
+```
+
+The server selects the generation model; client `tenant_id`, `model`, and other unknown body fields are rejected. Invalid authentication returns 401, invalid requests return 422, and pipeline failures return a generic 500 without internal details. Existing tracing and query-level usage accounting remain in the pipeline.
+
+Open [Swagger UI](http://127.0.0.1:8001/docs), use **Authorize**, and submit the request above. See [Day 26 API documentation](docs/day26-api.md) for the audit, detailed constraints, verified environment results, Postman steps, and remaining limitations.
+
+API regression tests (external work mocked):
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+### 7.5. Run Background Ingestion
 
 Start a worker in one terminal:
 
@@ -358,7 +403,7 @@ python -m experiments.test_background_ingestion
 
 The script queues the ACME handbook as `second-document`. Indexing the same content under two document IDs also provides a way to inspect source-preserving deduplication. The worker must be able to access the PDF path. Read job status with `src.jobs.job_store.get_job(job_id)`.
 
-### 7.5. Run Tests and Evaluations
+### 7.6. Run Tests and Evaluations
 
 Citation validation, mocked generation retry, and generation metric tests:
 
@@ -382,7 +427,7 @@ python -m evaluation.generation_runner
 
 Tenant tests exercise live retrieval. The retrieval metric tests' import chain also initializes the embedding client and reranker. Evaluation runners overwrite their JSON reports. If chunking settings or document IDs change, review the expected source IDs in the datasets.
 
-### 7.6. Inspect Traces and Benchmark Performance
+### 7.7. Inspect Traces and Benchmark Performance
 
 To print OpenTelemetry spans while running the generation evaluation:
 
@@ -411,7 +456,7 @@ The project currently provides a working engineering foundation for developing a
 | Cache invalidation is best effort; keys do not version the full prompt and model configuration | Stronger cache versioning and invalidation |
 | Citation checks establish format and ID consistency | Claim-level source support and semantic faithfulness evaluation |
 | Empty context and exhausted validation attempts raise errors | Explicit API-level error and abstention contracts |
-| JWT and role utilities are not connected to an HTTP boundary | Authenticated API and enforced authorization |
+| Query API uses JWT authentication; ingestion still has no HTTP boundary | Admin-authorized ingestion/job endpoints |
 | PDF extraction does not include OCR | Scanned-document processing |
 | Tracing currently uses console/in-memory exporters; no persistent telemetry backend or alerting | Add trace storage, dashboards, alerting, and production telemetry hygiene |
 | Performance samples are small, sequential, and sensitive to cache state | Larger repeatable workloads, isolated cache scenarios, concurrency tests, and defined SLOs |

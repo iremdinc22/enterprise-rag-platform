@@ -68,8 +68,8 @@ def get_cached_result(
     try:
         cached_value = redis_client.get(key)
 
-    except RedisError as error:
-        print(f"Result cache unavailable: {error}")
+    except RedisError:
+        print("Result cache unavailable")
         return None
 
     if cached_value is None:
@@ -103,8 +103,8 @@ def cache_result(
             ex=RESULT_CACHE_TTL
         )
 
-    except RedisError as error:
-        print(f"Result cache write skipped: {error}")
+    except RedisError:
+        print("Result cache write skipped")
 
 
 def invalidate_tenant_results(tenant_id):
@@ -116,8 +116,8 @@ def invalidate_tenant_results(tenant_id):
         for key in redis_client.scan_iter(match=pattern):
             deleted_count += redis_client.delete(key)
 
-    except RedisError as error:
-        print(f"Result cache invalidation skipped: {error}")
+    except RedisError:
+        print("Result cache invalidation skipped")
         return 0
 
     return deleted_count

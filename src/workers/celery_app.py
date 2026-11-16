@@ -7,6 +7,7 @@ from celery import Celery
 from qdrant_client.http.exceptions import ResponseHandlingException
 
 from src.config import CELERY_BROKER_URL
+from src.identifiers import validate_identifier
 from src.ingestion.pipeline import ingest_document
 from src.jobs.job_store import update_job_status
 
@@ -51,6 +52,8 @@ def ingest_document_task(
     )
 
     try:
+        validate_identifier(tenant_id)
+        validate_identifier(document_id)
         asyncio.run(
             ingest_document(
                 file_path=file_path,

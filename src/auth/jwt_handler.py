@@ -5,6 +5,7 @@ import jwt
 from dotenv import load_dotenv
 
 from src.auth.models import UserContext
+from src.identifiers import validate_identifier
 
 
 load_dotenv()
@@ -24,6 +25,7 @@ def create_access_token(
     role,
     expires_minutes=30
 ):
+    validate_identifier(tenant_id)
     now = datetime.now(timezone.utc)
 
     payload = {

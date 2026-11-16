@@ -279,11 +279,44 @@ class EndToEnd(unittest.TestCase):
 
     def test_reingestion_replaces_and_invalidates_cache(self):
         self.assert_evidence(self.request(), "acme")
+        self.assert_evidence(self.request("globex"), "globex")
         key = result_cache.build_result_cache_key("acme", QUESTION, "gpt-4.1-mini", 5, 3, 0.5)
+        other_key = result_cache.build_result_cache_key("globex", QUESTION, "gpt-4.1-mini", 5, 3, 0.5)
+        child_key = result_cache.build_result_cache_key("acme:branch", QUESTION, "gpt-4.1-mini", 5, 3, 0.5)
+        # Legacy prefix-collision keys exist only in this disposable Redis.
+        result_cache.redis_client.set(child_key, "isolated-legacy-cache", ex=result_cache.RESULT_CACHE_TTL)
+        self.addCleanup(result_cache.redis_client.delete, child_key)
+        other_cache = result_cache.redis_client.get(other_key)
         self.assertTrue(result_cache.redis_client.exists(key))
         path = f"/collections/{COLLECTION_NAME}/points/count"
         payload = {"filter": {"must": [{"key": "tenant_id", "match": {"value": "acme"}}]}, "exact": True}
         before = self.http.post(path, json=payload).json()["result"]["count"]
+
+        # Corrupt a test-owned target's chunk ownership. An unsafe delete-first
+        # replacement would remove the conflicting point and conceal the error.
+        from src.ingestion.pipeline import ingest_document
+        from src.vector_store.qdrant_store import PointOwnershipConflict
+        point_id = str(uuid5(NAMESPACE_URL, "acme:acme-policy:chunk-001"))
+        update_path = f"/collections/{COLLECTION_NAME}/points/payload?wait=true"
+        scroll_path = f"/collections/{COLLECTION_NAME}/points/scroll"
+        snapshot_request = {"filter": payload["filter"], "limit": 100,
+                            "with_payload": True, "with_vector": True}
+        self.http.post(update_path, json={"points": [point_id], "payload": {"chunk_id": "conflicting-chunk"}}).raise_for_status()
+        try:
+            snapshot = self.http.post(scroll_path, json=snapshot_request)
+            snapshot.raise_for_status()
+            cached_before = result_cache.redis_client.get(key)
+            future = asyncio.run_coroutine_threadsafe(ingest_document(
+                documents() / "acme-e2e.pdf", "acme-policy", "acme"), self.loop)
+            with self.assertRaises(PointOwnershipConflict):
+                future.result(timeout=20)
+            unchanged = self.http.post(scroll_path, json=snapshot_request)
+            unchanged.raise_for_status()
+            self.assertEqual(unchanged.json()["result"]["points"], snapshot.json()["result"]["points"])
+            self.assertEqual(result_cache.redis_client.get(key), cached_before)
+        finally:
+            self.http.post(update_path, json={"points": [point_id], "payload": {"chunk_id": "chunk-001"}}).raise_for_status()
+
         job_id = str(uuid4())
         self.job_ids.append(job_id)
         job_store.create_job(job_id, "acme-policy")
@@ -291,6 +324,8 @@ class EndToEnd(unittest.TestCase):
         ingest_document_task.apply_async(args=[str(documents() / "acme-e2e.pdf"), "acme-policy", "acme"], task_id=job_id)
         self.wait_job(job_id, "completed")
         self.assertFalse(result_cache.redis_client.exists(key))
+        self.assertEqual(result_cache.redis_client.get(other_key), other_cache)
+        self.assertEqual(result_cache.redis_client.get(child_key), "isolated-legacy-cache")
         after = self.http.post(path, json=payload).json()["result"]["count"]
         self.assertEqual(before, after)
         self.assert_evidence(self.request(), "acme")

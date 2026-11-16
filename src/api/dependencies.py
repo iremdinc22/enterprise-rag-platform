@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from src.auth.jwt_handler import decode_access_token
 from src.auth.models import UserContext
+from src.identifiers import validate_identifier
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -16,7 +17,8 @@ def authenticated_user(
         if credentials is None:
             raise ValueError("Missing credentials")
         user = decode_access_token(credentials.credentials)
-        if not user.user_id.strip() or not user.tenant_id.strip():
+        validate_identifier(user.tenant_id)
+        if not user.user_id.strip():
             raise ValueError("Empty identity")
         return user
     except (InvalidTokenError, ValidationError, ValueError, TypeError):

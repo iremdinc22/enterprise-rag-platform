@@ -1,11 +1,13 @@
 import hashlib
 import json
+import re
 
 import redis
 from redis.exceptions import RedisError
 
 
 from src.config import REDIS_CACHE_URL
+from src.identifiers import validate_identifier
 
 
 redis_client = redis.Redis.from_url(
@@ -109,15 +111,23 @@ def cache_result(
 
 
 def invalidate_tenant_results(tenant_id):
-    pattern = f"rag-result:{tenant_id}:*"
+    validate_identifier(tenant_id)
 
     deleted_count = 0
 
     try:
-        for key in redis_client.scan_iter(match=pattern):
+        # SCAN only discovers candidates. Ownership comes from the complete
+        # existing key grammar, never a tenant prefix or interpolated glob.
+        for key in redis_client.scan_iter(match="rag-result:*"):
+            if not isinstance(key, str):
+                continue
+            parts = key.split(":", 2)
+            if (len(parts) != 3 or parts[0] != "rag-result" or parts[1] != tenant_id
+                    or re.fullmatch(r"[0-9a-f]{64}", parts[2]) is None):
+                continue
             deleted_count += redis_client.delete(key)
 
-    except RedisError:
+    except (RedisError, UnicodeError):
         print("Result cache invalidation skipped")
         return 0
 

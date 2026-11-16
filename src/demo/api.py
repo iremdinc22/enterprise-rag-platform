@@ -17,6 +17,8 @@ def build_app(*, login_clock=None, upload_service=None):
     install_sessions(app, clock=login_clock)
     from src.demo.uploads import install_uploads
     install_uploads(app, ACTIVE_SETTINGS, service=upload_service)
+    from src.demo.documents import install_documents
+    install_documents(app, app.state.upload_service)
 
     def unavailable():
         # Dependency rejection occurs before admission, retrieval or cache access.

@@ -176,3 +176,44 @@ these tests execute the actual Lua scripts without any Redis socket or server.
 Synthetic PDFs, temporary files, fake publishers and fake pipelines are used;
 existing documents/collections, containers and environment files are untouched.
 Runtime upload verification and Docker integration are separate approval steps.
+
+## Tenant-owned document access
+
+The isolated demo API also provides authenticated, read-only source access:
+
+- `GET /api/v1/documents?limit=20&offset=0`: `limit` is 1–50 and
+  `offset` is nonnegative. Returns `documents`, `total`, `limit`, and `offset`.
+  Each document contains `document_id`, `job_id`, `filename`, `size_bytes`,
+  `page_count`, `created_at`, and current `status`. Results include all accepted
+  submission statuses, sorted newest first (document ID breaks timestamp ties).
+- `GET /api/v1/documents/{document_id}/file`: returns the original PDF to its
+  authenticated tenant, including while ingestion is pending or failed.
+  Foreign, missing, malformed IDs, missing files, unsafe filesystem entries,
+  and file digest/size mismatches return the same generic 404 response.
+
+Both admin and employee roles may read their own tenant's documents. Tenant
+selection comes only from verified JWT claims. These routes are absent from the
+normal API and do not enable providers. Supply Bearer authentication headers;
+never place tokens in URLs. Citation document IDs and page numbers are unchanged;
+a future dashboard can fetch the authorized bytes and open a local viewer at the
+cited page.
+
+PDF responses use `application/pdf`, `Content-Disposition: attachment` with a
+safely encoded original filename, `Cache-Control: no-store`, `nosniff`, and a
+sandbox CSP. Files are read through no-follow directory/file descriptors after
+ownership validation, bounded to the upload limit and checked against the stored
+SHA-256 and size. No private path is returned. This is source download, not PDF
+content sanitization; downloaded PDFs remain untrusted documents. HTTP Range and
+inline preview are not implemented.
+
+Listing uses existing document metadata without an index migration. Work is
+bounded to 64 SCAN calls and 256 distinct document keys; unexpected database
+expansion or malformed owned metadata fails safely with 503. SCAN pagination is
+not a transactional snapshot: concurrent status updates/submissions can change
+results between requests. Four shared status/document read slots bound blocking
+work, retain slots through cancellation cleanup, and reject overload with 503.
+PDF bytes are buffered (at most 5 MiB per read); this is not a streaming download.
+
+Network-free verification: `python -m unittest tests.test_demo_documents -v`.
+Tests use only temporary files and fake Redis; no provider or existing corpus
+access is required.

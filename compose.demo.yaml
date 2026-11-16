@@ -6,7 +6,7 @@ x-demo: &demo
   build:
     context: .
   init: true
-  environment:
+  environment: &demo-env
     DEMO_ENABLED: "1"
     DEMO_PROVIDER_MODE: ${DEMO_PROVIDER_MODE:-disabled}
     DEMO_JWT_SECRET: ${DEMO_JWT_SECRET:?Set a new demo-only signing secret}
@@ -58,6 +58,10 @@ services:
   api:
     <<: *demo
     command: [python, -m, src.demo.run, api]
+    environment:
+      <<: *demo-env
+      DEMO_ACME_PASSWORD_HASH: ${DEMO_ACME_PASSWORD_HASH:?Set demo ACME password hash}
+      DEMO_GLOBEX_PASSWORD_HASH: ${DEMO_GLOBEX_PASSWORD_HASH:?Set demo GLOBEX password hash}
     volumes:
       - model_cache:/home/app/.cache/huggingface
       - uploads:/demo/uploads

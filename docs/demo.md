@@ -2,8 +2,8 @@
 
 [Overview](../README.md) · [Deployment](deployment.md)
 
-TASK-030.3 supplies infrastructure only. There is no React dashboard, demo login,
-upload/document API, or simulated provider yet. The frontend is a static Python
+TASK-030.3 supplies isolated infrastructure; TASK-030.4 adds demo-only sessions.
+There is no React dashboard, upload/document API, or simulated provider yet. The frontend is a static Python
 placeholder, to be replaced by React/TypeScript/Vite and its same-origin API proxy.
 **Do not start this stack until explicitly approved.** Commands below are for that
 later approved operation; configuration validation/tests do not start services.
@@ -18,13 +18,14 @@ internal backend network, without Internet routing. Only the secret-free fronten
 also joins a separate project-scoped edge network, required for effective loopback
 port publishing in the verified Docker Desktop runtime. No backend joins edge.
 Check the selected host port before
-startup; 18030 is proposed, not verified free.
+startup; 18030 was free during the infrastructure verification, but availability
+must be checked again before subsequent starts.
 
 Project-scoped named volumes are `uploads`, `qdrant_data`, `redis_data`, and
 `model_cache`. There are no host-data bind mounts or external volumes. API mounts
 `/demo/uploads` read/write; worker mounts it read-only. The image provides an
-app-owned mount target (UID/GID 10001); permission behavior still needs runtime
-verification on first approved startup. Model cache is separate from existing
+app-owned mount target (UID/GID 10001); API write access and worker read-only
+access passed the first approved infrastructure runtime verification. Model cache is separate from existing
 model volumes. Normal shutdown preserves all volumes.
 
 Backend/worker entrypoints validate settings **before importing existing clients**:
@@ -34,6 +35,7 @@ Backend/worker entrypoints validate settings **before importing existing clients
 | `DEMO_ENABLED` | `1` |
 | `DEMO_PROVIDER_MODE` | `disabled` (only supported mode in this task) |
 | `DEMO_JWT_SECRET` | New demo-only secret, 32–256 printable non-space ASCII characters |
+| `DEMO_ACME_PASSWORD_HASH`, `DEMO_GLOBEX_PASSWORD_HASH` | Required by API only; fixed-format scrypt hashes, never plaintext |
 | `PYTHON_DOTENV_DISABLED` | `1` |
 | `QDRANT_URL` | `http://qdrant:6333` |
 | `QDRANT_COLLECTION` | `enterprise_demo_documents` |
@@ -49,7 +51,7 @@ Backend/worker entrypoints validate settings **before importing existing clients
 | `DEMO_MAX_CHUNKS` | 1–200; Compose default 200 |
 
 Upload limits are validated configuration for future upload work, **not an
-implemented upload policy or API**. ACME/GLOBEX session mapping is also deferred.
+implemented upload policy or API**. Demo accounts map to ACME/GLOBEX on the server; there is no tenant provisioning.
 Redis DB separation and existing cache/job key formats remain unchanged; isolation
 comes from the separate Redis instance. Future demo document metadata will have
 its own namespace. There is no metadata store implementation in this task.
@@ -72,9 +74,8 @@ provider clients, and existing ingestion behavior are unchanged.
 Use a clearly fake validation value, not an existing secret:
 
 ```bash
-DEMO_JWT_SECRET=validation-only-not-a-real-secret-000000000000 \
-  docker compose --env-file /dev/null -f compose.demo.yaml config --quiet
-python -m unittest tests.test_demo_infrastructure -v
+# Tests supply clearly fake, correctly shaped hashes; no private env files.
+python -m unittest tests.test_demo_infrastructure tests.test_demo_sessions -v
 python -m compileall -q src tests
 git diff --check
 ```
@@ -87,7 +88,8 @@ Never print resolved Compose configuration with real credentials.
 
 ## Later approved first startup
 
-First create a **new** private `.env.demo`; do not overwrite `.env`, `.env.compose`
+First create a **new** private `.env.demo` if absent; retain the existing runtime
+verification file when present. Do not overwrite `.env`, `.env.compose`
 or a previous `.env.demo`. [.env.demo.example](../.env.demo.example) describes the
 fields. Generate the secret without printing it, with exclusive creation:
 
@@ -105,17 +107,31 @@ PY
 loopback port if 18030 is occupied. Do not add host service URLs, provider keys,
 existing secrets, or volume names to this file.
 
+Set up a **new** ignored password hash file interactively before the next approved
+startup. This helper requires a TTY, prompts without echo, uses scrypt with a random
+16-byte salt and N=131072/r=8/p=1, and creates the output exclusively at mode 0600.
+It never prints passwords/hashes. It does not modify an existing file:
+
+```bash
+python -m src.demo.passwords --output .env.demo.auth
+```
+
+Do not pass passwords on command lines. The generated dotenv values are
+single-quoted to preserve the scrypt `$` separators. Neither the hash file nor the
+JWT secret file belongs in Git. Compose injects hashes into API only, not frontend
+or worker. Missing/plaintext/unsupported hashes prevent the demo API from serving.
+
 After explicit startup approval:
 
 ```bash
-docker compose --env-file .env.demo -f compose.demo.yaml config --quiet
-docker compose --env-file .env.demo -f compose.demo.yaml build
-docker compose --env-file .env.demo -f compose.demo.yaml up -d qdrant redis
+docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.yaml config --quiet
+docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.yaml build
+docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.yaml up -d qdrant redis
 # Explicit creation of ONLY the demo collection; no documents or embeddings.
-docker compose --env-file .env.demo -f compose.demo.yaml run --rm --no-deps api \
+docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.yaml run --rm --no-deps api \
   python -m src.demo.run init-collection
-docker compose --env-file .env.demo -f compose.demo.yaml up -d
-docker compose --env-file .env.demo -f compose.demo.yaml ps
+docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.yaml up -d
+docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.yaml ps
 ```
 
 Browse `http://127.0.0.1:18030` for the placeholder only. It has no API proxy yet.
@@ -127,7 +143,7 @@ There is no automatic collection creation, seeding, corpus copy or ingestion.
 Normal shutdown (retains data):
 
 ```bash
-docker compose --env-file .env.demo -f compose.demo.yaml down
+docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.yaml down
 ```
 
 Do not append volume-deletion flags or run global cleanup/prune commands. Reset
@@ -135,11 +151,84 @@ and persistent-data deletion require separate approval. Nothing here targets
 `stupefied_dewdney`, `enterprise-rag-redis`, `enterprise-rag-docker`, their volumes,
 or collection `enterprise_documents`.
 
-## Remaining verification
+## Demo session API
 
-This task does not start/build the stack. On approved startup, verify non-root
-volume access, internal networking plus loopback browser access, each healthcheck,
-collection initialization, and existing-environment preservation. The frontend is
-not Vite yet. No login, uploads, jobs API, document list or PDF viewer is supplied.
-The demo is localhost-first infrastructure, not a public deployment or a hard
-billing-cap mechanism.
+`POST /api/v1/demo/session` exists only in the activated demo application.
+The normal `src.api.main:app` does not expose it, even if demo environment variables
+are present. Demo mode must be explicitly enabled, with a distinct JWT secret.
+
+Request (password placeholder is illustrative, not a supplied credential):
+
+```json
+{"username": "acme-demo", "password": "<entered locally>"}
+```
+
+Only `username` (1–64 characters) and `password` (1–256 characters) are accepted.
+No stripping or case conversion occurs. Extra fields and query parameters return
+sanitized 422; client tenant/role/claims never determine the token. The fixed mapping
+is `acme-demo -> acme/admin`, `globex-demo -> globex/admin`. Both accounts can query
+and are intended to authorize future demo uploads; there is no external identity
+provider or signup.
+
+Success 200 contains `access_token`, `token_type: "bearer"`, `expires_in: 900`, and
+`user: {user_id, tenant_id, role}`. Existing JWT helpers sign and verify HS256 with
+15-minute expiration. Keep the token in frontend memory in the later UI; never
+place it in URLs, logs, browser bundles or localStorage. All session-path responses,
+including errors and redirects, carry `Cache-Control: no-store`.
+
+Invalid account/password returns the same 401 `Invalid credentials`. Unknown
+accounts still perform one password derivation. Verification uses constant-time
+digest comparison. Backend exceptions return sanitized 503 without exception text.
+
+Session protection precedes JSON parsing: 4096 actual body bytes (413), five seconds
+total body reception (408), malformed Content-Length (400). Missing/chunked or
+underdeclared lengths are still byte-counted. These limits are separate from query
+body protection; existing query defaults are unchanged.
+
+A process-local lock admits at most 10 POST attempts in a rolling 60-second window.
+Attempts include success, invalid credentials, invalid bodies, timeouts and busy
+rejections; none are refunded. Rate rejections return 429 plus `Retry-After` and
+start no password verification. There is one active scrypt operation and no waiting
+queue; busy rejection is also 429. Each derivation needs about 128 MiB, bounded by
+a 256 MiB OpenSSL memory ceiling. Hashing uses the existing cancellation-draining
+execution helper in a thread: cancellation retains the slot until work finishes.
+Health and query quotas are independent. The five-second timeout is for receiving
+the body, not a hard cutoff for password hashing or response delivery.
+
+## Verified scope and remaining work
+
+The infrastructure runtime passed five-service health checks, localhost placeholder
+access, demo-only DNS/network/volume checks, empty demo collection readiness,
+Redis connectivity, worker ping, and disabled-query 503. The stack was then stopped
+with its volumes retained. Two startup fixes were required: invoking the placeholder
+module main, and adding a frontend-only edge network for effective localhost port
+publishing. No existing database contents were accessed.
+
+The final TASK-030.4 checkpoint also passed real HTTP authentication inside the
+isolated API container, without publishing its port: ACME/GLOBEX login 200 with
+correct tenant/admin claims and 900-second JWTs; invalid credentials/unknown account
+401; missing fields and extra claims 422; authenticated query 503 with provider
+disabled; unauthenticated query 401; eleventh login POST 429. Session responses
+carried no-store. The existing normal API returned 404 for the session route, with
+no credentials sent to it. All five demo services were healthy and the frontend
+placeholder returned 200 on localhost.
+
+The interactive helper was exercised through a terminal with echo disabled, using
+fresh random verification-only passwords kept in memory. Only salted hashes were
+retained in the ignored mode-0600 `.env.demo.auth`; passwords and tokens were not
+printed or retained. For later manual login, generate a new ignored auth file under
+a different name with operator-chosen passwords and select it as the second
+`--env-file`; do not overwrite existing private files.
+
+After verification only the demo stack was stopped, retaining all four demo volumes.
+Read-only before/after hashes confirmed the existing 23 Qdrant points, local Redis
+values and existing private env files were unchanged. Existing RAG container
+identities/start times/restart counts/mounts/networks were unchanged. Two unrelated
+SQL containers showed metadata changes during the checkpoint; no commands targeted
+them. No documents were ingested and no provider calls were made.
+
+Rate state is per process and resets on restart; it is not a distributed auth
+service. Token refresh, revocation and account management are not implemented.
+Passwords require operator setup; there are no default passwords. The placeholder
+has no API proxy or login UI yet. No uploads, jobs API, document list, PDF viewer,
+provider calls, public deployment or hard billing-cap mechanism is supplied.

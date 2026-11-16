@@ -1,17 +1,20 @@
 """Existing API contracts with an offline demo lifecycle and disabled queries."""
 from contextlib import asynccontextmanager
 import sys
+import os
 
 
-def build_app():
+def build_app(*, login_clock=None):
     from src.demo.config import ACTIVE_SETTINGS
-    if ACTIVE_SETTINGS is None:
+    if ACTIVE_SETTINGS is None or os.getenv("DEMO_ENABLED") != "1":
         raise ValueError("Demo runtime must be activated before API imports")
     from fastapi import HTTPException
     from src.api.main import create_app
     from src.api.dependencies import get_pipeline
 
     app = create_app()
+    from src.demo.sessions import install_sessions
+    install_sessions(app, clock=login_clock)
 
     def unavailable():
         # Dependency rejection occurs before admission, retrieval or cache access.

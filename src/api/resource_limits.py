@@ -100,12 +100,12 @@ class QueryAdmission:
 
 class QueryBodyLimit:
     """Buffer at most the configured bytes before invoking FastAPI's JSON parser."""
-    def __init__(self, app, *, limits):
-        self.app, self.limits = app, limits
+    def __init__(self, app, *, limits, path="/api/v1/query"):
+        self.app, self.limits, self.path = app, limits, path
 
     async def __call__(self, scope, receive, send):
         if (scope["type"] != "http" or scope["method"] != "POST"
-                or scope["path"].rstrip("/") != "/api/v1/query"):
+                or scope["path"].rstrip("/") != self.path):
             return await self.app(scope, receive, send)
 
         async def reject(status, detail):

@@ -22,6 +22,9 @@ deadline. Redis is optional caching and does not gate readiness. A ready service
 does not prove provider credential validity/quota, tenant corpus contents, or
 end-to-end answer quality. An empty initialized collection can pass readiness.
 
+Demo-only login is documented in [the isolated demo guide](demo.md#demo-session-api);
+it is not exposed by this normal API entrypoint.
+
 ## Authentication and tenant identity
 
 Send `Authorization: Bearer <token>`. The existing JWT utility verifies HS256

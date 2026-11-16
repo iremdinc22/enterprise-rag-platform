@@ -24,6 +24,8 @@ def demo_env():
         "REDIS_JOBS_URL": "redis://redis:6379/1", "REDIS_CACHE_URL": "redis://redis:6379/2",
         "DEMO_UPLOAD_ROOT": "/demo/uploads", "HF_HOME": "/home/app/.cache/huggingface",
         "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1", "RAG_TRACING_ENABLED": "false",
+        "DEMO_ACME_PASSWORD_HASH": "scrypt$131072$8$1$" + "0" * 32 + "$" + "0" * 64,
+        "DEMO_GLOBEX_PASSWORD_HASH": "scrypt$131072$8$1$" + "1" * 32 + "$" + "1" * 64,
         "DEMO_MAX_UPLOAD_BYTES": "5242880", "DEMO_MAX_PDF_PAGES": "10", "DEMO_MAX_CHUNKS": "200",
     }
 
@@ -37,7 +39,7 @@ class DemoConfigurationTests(unittest.TestCase):
         self.assertNotIn(settings.jwt_secret, repr(settings))
 
     def test_every_setting_is_required_without_host_fallback(self):
-        for key in demo_env():
+        for key in set(demo_env()) - {"DEMO_ACME_PASSWORD_HASH", "DEMO_GLOBEX_PASSWORD_HASH"}:
             env = demo_env(); env.pop(key)
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, '^Invalid demo configuration$'):
                 DemoSettings.from_env(env)
@@ -197,7 +199,7 @@ class DemoComposeTests(unittest.TestCase):
             raise unittest.SkipTest("Docker CLI required for static Compose parsing")
         command = ["docker", "compose", "--env-file", "/dev/null", "-f", "compose.demo.yaml", "config", "--format", "json"]
         result = subprocess.run(command, env={"PATH": os.environ["PATH"],
-            "DEMO_JWT_SECRET": demo_env()["DEMO_JWT_SECRET"]}, cwd=ROOT, capture_output=True, text=True)
+            **{key: demo_env()[key] for key in ("DEMO_JWT_SECRET", "DEMO_ACME_PASSWORD_HASH", "DEMO_GLOBEX_PASSWORD_HASH")}}, cwd=ROOT, capture_output=True, text=True)
         if result.returncode:
             raise AssertionError("Static demo Compose configuration invalid")
         cls.config = json.loads(result.stdout)
@@ -249,6 +251,13 @@ class DemoComposeTests(unittest.TestCase):
             self.assertNotIn("JWT_SECRET_KEY", env)
             self.assertFalse(self.config["services"][name].get("env_file"))
             self.assertEqual(self.config["services"][name]["command"][:3], ["python", "-m", "src.demo.run"])
+        from src.demo.passwords import DemoCredentials
+        # Compose config escapes '$' as '$$' for round-trip rendering, not runtime env.
+        api_env = {key: value.replace("$$", "$") if key.endswith("_PASSWORD_HASH") else value
+                   for key, value in self.config["services"]["api"]["environment"].items()}
+        DemoCredentials.from_env(api_env)
+        for key in ("DEMO_ACME_PASSWORD_HASH", "DEMO_GLOBEX_PASSWORD_HASH"):
+            self.assertNotIn(key, self.config["services"]["worker"]["environment"])
         self.assertFalse(self.config["services"]["frontend"].get("environment"))
         self.assertFalse(self.config["services"]["frontend"].get("volumes"))
 

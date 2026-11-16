@@ -174,6 +174,7 @@ class IdentifierStoreTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(self.ingestion, "parse_pdf", return_value=[{"page": 1, "text": "Synthetic"}]), \
              patch.object(self.ingestion, "create_embeddings", new=AsyncMock(return_value=[[1.0] * 1536])), \
              patch.object(self.ingestion, "create_collection", new=AsyncMock()), \
+             patch.object(self.ingestion, "get_collection_dimension", new=AsyncMock(return_value=1536)), \
              patch.object(self.ingestion, "check_chunk_ownership", new=AsyncMock()), \
              patch.object(self.ingestion, "delete_document_chunks", new=AsyncMock()) as delete, \
              patch.object(self.ingestion, "upsert_chunks", new=AsyncMock()) as upsert, \

@@ -317,6 +317,45 @@ class EndToEnd(unittest.TestCase):
         finally:
             self.http.post(update_path, json={"points": [point_id], "payload": {"chunk_id": "chunk-001"}}).raise_for_status()
 
+        # Faults apply only to this disposable stack, with real stored points/cache.
+        from contextlib import ExitStack
+        from src.ingestion import pipeline as ingestion
+        all_snapshot_request = {"limit": 100, "with_payload": True, "with_vector": True}
+        before_points = self.http.post(scroll_path, json=all_snapshot_request)
+        before_points.raise_for_status()
+        before_points = sorted(before_points.json()["result"]["points"], key=lambda point: str(point["id"]))
+        before_cache = {k: result_cache.redis_client.dump(k) for k in (key, other_key, child_key)}
+        cases = [
+            ("empty", "parse_pdf", [], ValueError),
+            ("missing", "create_embeddings", [], ValueError),
+            ("malformed", "create_embeddings", [["invalid"] * 1536], ValueError),
+            ("dimension", "create_embeddings", [[0.0] * 2], ValueError),
+            ("schema", "get_collection", TimeoutError("isolated schema failure"), TimeoutError),
+        ]
+        async def reject_replacement(target, outcome, expected_error):
+            with ExitStack() as stack:
+                # One synthetic chunk makes vector shape/count cases independent.
+                stack.enter_context(patch.object(ingestion, "parse_pdf", return_value=[{"page": 1, "text": "Synthetic"}]))
+                replacement = (patch.object(ingestion, target, return_value=outcome) if target == "parse_pdf"
+                    else patch.object(qdrant_client if target == "get_collection" else ingestion, target, new=AsyncMock(**(
+                        {"side_effect": outcome} if isinstance(outcome, Exception) else {"return_value": outcome}))))
+                stack.enter_context(replacement)
+                delete = stack.enter_context(patch.object(ingestion, "delete_document_chunks", wraps=ingestion.delete_document_chunks))
+                upsert = stack.enter_context(patch.object(ingestion, "upsert_chunks", wraps=ingestion.upsert_chunks))
+                invalidate = stack.enter_context(patch.object(ingestion, "invalidate_tenant_results", wraps=ingestion.invalidate_tenant_results))
+                with self.assertRaises(expected_error):
+                    await ingestion.ingest_document(documents() / "acme-e2e.pdf", "acme-policy", "acme")
+                delete.assert_not_called()
+                upsert.assert_not_called()
+                invalidate.assert_not_called()
+        for label, target, outcome, expected_error in cases:
+            with self.subTest(preparation=label):
+                asyncio.run_coroutine_threadsafe(reject_replacement(target, outcome, expected_error), self.loop).result(timeout=20)
+                after_points = self.http.post(scroll_path, json=all_snapshot_request)
+                after_points.raise_for_status()
+                self.assertEqual(sorted(after_points.json()["result"]["points"], key=lambda point: str(point["id"])), before_points)
+                self.assertEqual({k: result_cache.redis_client.dump(k) for k in before_cache}, before_cache)
+
         job_id = str(uuid4())
         self.job_ids.append(job_id)
         job_store.create_job(job_id, "acme-policy")

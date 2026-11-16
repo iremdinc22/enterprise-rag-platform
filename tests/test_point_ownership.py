@@ -145,6 +145,7 @@ class PointOwnershipTests(unittest.IsolatedAsyncioTestCase):
         stack.enter_context(patch.object(self.ingestion, "parse_pdf", return_value=[{"page": 1, "text": "Synthetic"}]))
         stack.enter_context(patch.object(self.ingestion, "create_embeddings", new=AsyncMock(return_value=[[1.0, 0.0]])))
         stack.enter_context(patch.object(self.ingestion, "create_collection", new=AsyncMock()))
+        stack.enter_context(patch.object(self.ingestion, "get_collection_dimension", new=AsyncMock(return_value=2)))
         invalidate = stack.enter_context(patch.object(self.ingestion, "invalidate_tenant_results"))
         return stack, invalidate
 

@@ -7,6 +7,8 @@ from src.ingestion.chunker import chunk_text
 from src.ingestion.embedder import create_embeddings
 from src.vector_store.qdrant_store import (
     create_collection,
+    get_collection_dimension,
+    prepare_chunk_points,
     check_chunk_ownership,
     delete_document_chunks,
     upsert_chunks
@@ -50,6 +52,9 @@ async def ingest_document(
 
             chunk_number += 1
 
+    if not chunk_records:
+        raise ValueError("Replacement document must contain chunks")
+
     # 3. Create embeddings in batch
     texts = [
         record["text"]
@@ -58,12 +63,20 @@ async def ingest_document(
 
     embeddings = await create_embeddings(texts)
 
+    if not isinstance(embeddings, (list, tuple)) or len(embeddings) != len(chunk_records):
+        raise ValueError("Replacement embedding count mismatch")
+
     # 4. Attach embeddings to chunks
     for record, embedding in zip(
         chunk_records,
         embeddings
     ):
         record["embedding"] = embedding
+
+    # Prepare the entire replacement before any destructive operation. The same
+    # pure builder is reused at the public upsert boundary.
+    dimension = await get_collection_dimension()
+    prepare_chunk_points(chunk_records, dimension=dimension)
 
     # 5. Ensure the Qdrant collection exists
     await create_collection()

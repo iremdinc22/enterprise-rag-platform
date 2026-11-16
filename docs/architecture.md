@@ -42,7 +42,18 @@ use UUIDv5 over `tenant_id:document_id:chunk_id`.
 
 Re-ingestion deletes only the matching tenant/document version and inserts the
 new chunks, then invalidates that tenant's answer cache. Delete and insert are
-separate operations, so replacement is not atomic. PDF extraction has no OCR.
+separate operations, so replacement is not atomic. Before deletion, ingestion rejects
+empty replacements, mismatched embedding counts, invalid payload/ownership fields,
+non-numeric or non-finite vectors, and dimensions inconsistent with the collection
+schema. It constructs the complete point set using the same builder as upsert.
+An unavailable or unsupported schema stops replacement before deletion.
+
+These checks protect against invalid prepared data, not failures after deletion:
+Qdrant write errors, process crashes, or the second ownership check can still leave
+the previous document deleted. Concurrent ingestions can interleave; ownership
+reads are not locks. Cache invalidation remains best effort, and an in-flight query
+can repopulate stale results after invalidation. There is no rollback or versioned
+publication. PDF extraction has no OCR.
 
 Ingestion is a trusted internal interface, not an HTTP upload endpoint. The
 [admin authorization helper](../src/auth/authorization.py) exists, but ingestion

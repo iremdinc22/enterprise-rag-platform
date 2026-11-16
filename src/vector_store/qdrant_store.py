@@ -1,4 +1,6 @@
 from uuid import uuid5, NAMESPACE_URL
+from math import isfinite
+from numbers import Real
 
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import (
@@ -115,27 +117,59 @@ async def delete_document_chunks(
     )
 
 
+async def get_collection_dimension():
+    """Read the actual unnamed-vector schema; never modify an existing collection."""
+    if not await client.collection_exists(COLLECTION_NAME):
+        return EMBEDDING_DIMENSION
+    info = await client.get_collection(COLLECTION_NAME)
+    vectors = info.config.params.vectors
+    if not isinstance(vectors, VectorParams):
+        raise ValueError("Unsupported collection vector configuration")
+    return vectors.size
+
+
+def prepare_chunk_points(chunk_records, dimension=None):
+    """Fully validate and construct points without reads, deletes or writes."""
+    points = []
+    seen = set()
+    for record in chunk_records:
+        if not isinstance(record, dict):
+            raise ValueError("Invalid replacement payload")
+        point_id, _ = _point_id_and_owner(record)
+        if point_id in seen:
+            raise PointOwnershipConflict("Point ownership conflict")
+        seen.add(point_id)
+        for field in ("filename", "text"):
+            value = record.get(field)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError("Invalid replacement payload")
+        page = record.get("page")
+        if type(page) is not int or page < 1:
+            raise ValueError("Invalid replacement payload")
+        vector = record.get("embedding")
+        if not isinstance(vector, (list, tuple)) or not vector:
+            raise ValueError("Invalid replacement embedding")
+        if dimension is not None and len(vector) != dimension:
+            raise ValueError("Invalid replacement embedding dimension")
+        try:
+            valid = all(isinstance(value, Real) and not isinstance(value, bool)
+                        and isfinite(value) for value in vector)
+        except (OverflowError, TypeError, ValueError):
+            valid = False
+        if not valid:
+            raise ValueError("Invalid replacement embedding")
+        points.append(PointStruct(
+            id=point_id,
+            vector=list(vector),
+            payload={field: record[field] for field in
+                     (*_OWNERSHIP_FIELDS, "filename", "page", "text")},
+        ))
+    return points
+
+
 async def upsert_chunks(chunk_records):
     chunk_records = list(chunk_records)
-    points = []
-
-    for record in chunk_records:
-        point_id, _ = _point_id_and_owner(record)
-
-        point = PointStruct(
-            id=point_id,
-            vector=record["embedding"],
-            payload={
-                "chunk_id": record["chunk_id"],
-                "document_id": record["document_id"],
-                "tenant_id": record["tenant_id"],
-                "filename": record["filename"],
-                "page": record["page"],
-                "text": record["text"]
-            }
-        )
-
-        points.append(point)
+    points = prepare_chunk_points(chunk_records)
 
     await check_chunk_ownership(chunk_records)
     await client.upsert(

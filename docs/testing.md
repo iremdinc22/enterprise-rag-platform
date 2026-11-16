@@ -63,7 +63,7 @@ temporary container storage; existing source PDFs and collections are not used.
 | Citation validation | Successful retry and retry exhaustion |
 | Ingestion | PDF pages/chunks, 1536-dimensional vectors, job transitions |
 | Job failures | Missing file and transient embedding failure with real Celery retry |
-| Re-ingestion | Replacement counts and answer invalidation |
+| Re-ingestion | Valid replacement and answer invalidation; empty/missing/malformed/wrong-dimension candidates and schema-read failures preserve existing points/cache with zero delete/upsert/invalidation calls |
 | Qdrant faults | Connection/timeout paths and readiness 503 |
 | Redis faults | Cache get/set failures and fail-open behavior |
 | Generation faults | Safe HTTP error behavior |
@@ -90,6 +90,22 @@ calls; actual network partitions, failover, broker outage recovery, mid-ingestio
 crashes, retry exhaustion and concurrent document replacement remain untested.
 Repeated tasks in a long-lived production worker child are also unverified. This is
 functional coverage, not a load test, penetration test or uptime guarantee.
+
+## Pre-deletion ingestion safety verification
+
+The final TASK-029.3B run passed 193 host regressions (163 main, 22 generation,
+8 retrieval metrics), the same 193 regressions inside the Docker image, and all
+18 isolated E2E scenarios. The replacement scenario includes five preparation
+fault subtests and verifies unchanged stored points/cache plus zero
+delete/upsert/invalidation calls. These subtests are included in the 18 scenarios,
+not counted as additional scenarios.
+
+The first E2E run overlapped Docker regressions: a concurrent query hit the HTTP
+client timeout, followed by capacity rejections (four failures and one error).
+Running the unchanged suite sequentially passed all 18. This demonstrates timing
+sensitivity under concurrent test load; it is not evidence of atomic replacement
+or a production load guarantee. Qdrant writes after deletion, concurrent ingestion
+races, and best-effort cache invalidation remain outside the preparation guarantee.
 
 ## Controlled live smoke test
 

@@ -12,9 +12,11 @@ passing infrastructure tests alone does not demonstrate answer quality.
 
 ### Network-free regressions
 
-Run from the repository root in the configured virtual environment:
+Run from the repository root in the configured virtual environment. Install
+`requirements-test.txt` for the network-free Redis/Lua upload tests:
 
 ```bash
+python -m pip install -r requirements-test.txt
 python -m unittest discover -s tests -v
 python -m unittest discover -s evaluation/tests -p 'test_gener*.py' -v
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 python -m unittest discover -s evaluation/tests -p 'test_retrieval_metrics.py' -v

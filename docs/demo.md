@@ -3,7 +3,8 @@
 [Overview](../README.md) · [Deployment](deployment.md)
 
 TASK-030.3 supplies isolated infrastructure; TASK-030.4 adds demo-only sessions.
-There is no React dashboard, upload/document API, or simulated provider yet. The frontend is a static Python
+Demo upload and job tracking contracts are in [the upload guide](demo-uploads.md).
+There is no React dashboard, document listing/PDF retrieval API, or simulated provider yet. The frontend is a static Python
 placeholder, to be replaced by React/TypeScript/Vite and its same-origin API proxy.
 **Do not start this stack until explicitly approved.** Commands below are for that
 later approved operation; configuration validation/tests do not start services.
@@ -50,11 +51,11 @@ Backend/worker entrypoints validate settings **before importing existing clients
 | `DEMO_MAX_PDF_PAGES` | 1–10; Compose default 10 |
 | `DEMO_MAX_CHUNKS` | 1–200; Compose default 200 |
 
-Upload limits are validated configuration for future upload work, **not an
-implemented upload policy or API**. Demo accounts map to ACME/GLOBEX on the server; there is no tenant provisioning.
+Upload limits are enforced by the demo upload adapter; disabled provider mode
+rejects admission before receiving a body or creating a job. Demo accounts map to ACME/GLOBEX on the server; there is no tenant provisioning.
 Redis DB separation and existing cache/job key formats remain unchanged; isolation
-comes from the separate Redis instance. Future demo document metadata will have
-its own namespace. There is no metadata store implementation in this task.
+comes from the separate Redis instance. Document/job metadata uses the
+`demo:v1:` namespace.
 
 No `OPENAI_API_KEY` or existing `JWT_SECRET_KEY` is forwarded. The entrypoint maps
 `DEMO_JWT_SECRET` to the existing JWT utility only inside its process. Inherited
@@ -167,7 +168,7 @@ Only `username` (1–64 characters) and `password` (1–256 characters) are acce
 No stripping or case conversion occurs. Extra fields and query parameters return
 sanitized 422; client tenant/role/claims never determine the token. The fixed mapping
 is `acme-demo -> acme/admin`, `globex-demo -> globex/admin`. Both accounts can query
-and are intended to authorize future demo uploads; there is no external identity
+and authorize demo uploads when a provider is enabled; there is no external identity
 provider or signup.
 
 Success 200 contains `access_token`, `token_type: "bearer"`, `expires_in: 900`, and
@@ -230,5 +231,6 @@ them. No documents were ingested and no provider calls were made.
 Rate state is per process and resets on restart; it is not a distributed auth
 service. Token refresh, revocation and account management are not implemented.
 Passwords require operator setup; there are no default passwords. The placeholder
-has no API proxy or login UI yet. No uploads, jobs API, document list, PDF viewer,
-provider calls, public deployment or hard billing-cap mechanism is supplied.
+has no API proxy or login UI yet. Document listing and PDF viewing are not implemented. Upload/job adapters exist
+but admission remains disabled until a simulated provider is separately approved.
+No real provider calls, public deployment or hard billing-cap mechanism is supplied.

@@ -32,7 +32,7 @@ def main():
             DemoSettings.from_env()
             print("Demo configuration valid; provider disabled")
             return
-        activate()
+        settings = activate()
     except ValueError:
         raise SystemExit("Invalid demo configuration") from None
     if args.action == "api":
@@ -49,7 +49,10 @@ def main():
             if not replies:
                 raise SystemExit(1)
         else:
-            celery_app.worker_main(["worker", "--loglevel=warning", "--concurrency=1", "--hostname=demo@%h"])
+            from src.demo.ingestion import register_worker
+            register_worker(celery_app, settings)
+            celery_app.worker_main(["worker", "--loglevel=warning", "--concurrency=1", "--hostname=demo@%h",
+                                   "--queues=demo.ingestion", "--max-tasks-per-child=1"])
 
 
 if __name__ == "__main__":

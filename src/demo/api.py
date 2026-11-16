@@ -4,7 +4,7 @@ import sys
 import os
 
 
-def build_app(*, login_clock=None):
+def build_app(*, login_clock=None, upload_service=None):
     from src.demo.config import ACTIVE_SETTINGS
     if ACTIVE_SETTINGS is None or os.getenv("DEMO_ENABLED") != "1":
         raise ValueError("Demo runtime must be activated before API imports")
@@ -15,6 +15,8 @@ def build_app(*, login_clock=None):
     app = create_app()
     from src.demo.sessions import install_sessions
     install_sessions(app, clock=login_clock)
+    from src.demo.uploads import install_uploads
+    install_uploads(app, ACTIVE_SETTINGS, service=upload_service)
 
     def unavailable():
         # Dependency rejection occurs before admission, retrieval or cache access.

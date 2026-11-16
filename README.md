@@ -14,7 +14,8 @@ OpenTelemetry spans plus request-local usage tracking support evaluation.
 - [Architecture](docs/architecture.md): components, data flow, tenant isolation and technical limits.
 - [API](docs/api.md): endpoints, JWT requirements, schemas, errors and Swagger/Postman checks.
 - [Deployment](docs/deployment.md): local setup, Docker Compose, configuration and persistent storage.
-- [Local demo infrastructure](docs/demo.md): isolated configuration and placeholder; startup requires approval.
+- [Local demo](docs/demo.md): isolated configuration, authentication and placeholder; startup requires approval.
+- [Demo uploads](docs/demo-uploads.md): PDF admission/job tracking contracts; provider remains disabled.
 - [Testing](docs/testing.md): deterministic E2E coverage, controlled live testing, results and limitations.
 
 ## Run locally
@@ -61,6 +62,9 @@ initialize an empty collection. Startup does not migrate or ingest the local
 corpus. Normal shutdown retains volumes; never add a volume-deletion flag.
 
 ## Tests and verified behavior
+
+Install test-only dependencies with `python -m pip install -r requirements-test.txt`
+before running the host regression suite. They are not application dependencies.
 
 ```bash
 python -m unittest discover -s tests -v

@@ -1,0 +1,2 @@
+# Network-free Redis/Lua tests; not installed in the application image.
+fakeredis[lua]==2.40.0

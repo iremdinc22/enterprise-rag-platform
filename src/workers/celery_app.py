@@ -6,13 +6,14 @@ import openai
 from celery import Celery
 from qdrant_client.http.exceptions import ResponseHandlingException
 
+from src.config import CELERY_BROKER_URL
 from src.ingestion.pipeline import ingest_document
 from src.jobs.job_store import update_job_status
 
 
 celery_app = Celery(
     "enterprise_rag",
-    broker="redis://localhost:6381/0"
+    broker=CELERY_BROKER_URL
 )
 
 

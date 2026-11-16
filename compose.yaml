@@ -1,0 +1,84 @@
+x-app: &app
+  image: ${APP_IMAGE:-enterprise-rag-app:day27}
+  build:
+    context: .
+  init: true
+  restart: unless-stopped
+  environment: &app-env
+    OPENAI_API_KEY: ${OPENAI_API_KEY:?Set OPENAI_API_KEY in your private Compose env file}
+    JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in your private Compose env file}
+    QDRANT_URL: http://qdrant:6333
+    QDRANT_COLLECTION: ${QDRANT_COLLECTION:-enterprise_documents}
+    REDIS_CACHE_URL: redis://redis:6379/2
+    REDIS_JOBS_URL: redis://redis:6379/1
+    CELERY_BROKER_URL: redis://redis:6379/0
+    GENERATION_MODEL: ${GENERATION_MODEL:-gpt-4.1-mini}
+    EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+    RERANKER_MODEL: ${RERANKER_MODEL:-cross-encoder/ms-marco-MiniLM-L6-v2}
+    RERANKER_REVISION: ${RERANKER_REVISION:-233902d25c440f23af6f7d6e94d2946bac0bee0a}
+    HF_HOME: /home/app/.cache/huggingface
+    RAG_TRACING_ENABLED: ${RAG_TRACING_ENABLED:-false}
+  volumes:
+    - model_cache:/home/app/.cache/huggingface
+    - ${DOCUMENTS_DIR:-./data}:/app/data:ro
+  depends_on:
+    qdrant:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+services:
+  api:
+    <<: *app
+    ports:
+      - "127.0.0.1:${API_PORT:-8001}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 180s
+
+  worker:
+    <<: *app
+    stop_grace_period: 60s
+    command: ["celery", "-A", "src.workers.celery_app:celery_app", "worker", "--loglevel=warning", "--concurrency=1", "--hostname=worker@%h"]
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A src.workers.celery_app:celery_app inspect ping --destination worker@$$HOSTNAME --timeout 5 | grep -q pong"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  qdrant:
+    image: qdrant/qdrant@sha256:12364fe851b9f17356fc88189fc06d1b521262e04659ec7345975b00c9246a10
+    restart: unless-stopped
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333; printf \"GET /readyz HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n\" >&3; read -r response <&3; [[ $$response == *\"200\"* ]]'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7.4-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
+    command: ["redis-server", "--appendonly", "yes"]
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  qdrant_data:
+  redis_data:
+  model_cache:

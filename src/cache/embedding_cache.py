@@ -5,10 +5,11 @@ import redis
 from redis.exceptions import RedisError
 
 
-redis_client = redis.Redis(
-    host="localhost",
-    port=6381,
-    db=2,
+from src.config import REDIS_CACHE_URL
+
+
+redis_client = redis.Redis.from_url(
+    REDIS_CACHE_URL,
     decode_responses=True
 )
 

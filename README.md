@@ -4,7 +4,7 @@
 
 I developed document ingestion, hybrid retrieval, context selection, and answer generation as separate components, then added tenant isolation, JWT utilities, Redis caching, background ingestion with Celery, evaluation workflows, OpenTelemetry tracing, and query-level performance and cost tracking. The goal was to make it possible to inspect **which information the system can access, which evidence it uses, and how well each stage performs**.
 
-> **Current status:** The core workflows include an authenticated FastAPI query API (Day 26). See [API audit, setup, tests, and limitations](docs/day26-api.md). A user interface and production deployment package have not yet been implemented.
+> **Current status:** The core workflows include an authenticated FastAPI query API (Day 26). See [API audit, setup, tests, and limitations](docs/day26-api.md). A Compose deployment is available in the [Docker guide](docs/day27-docker.md). A user interface and further production hardening remain future work.
 
 ## Highlights
 
@@ -243,7 +243,32 @@ The `experiments/` directory also records development history. Some older script
 
 Python · FastAPI · Uvicorn · OpenAI Responses API · `text-embedding-3-small` · Qdrant · `rank-bm25` · Sentence Transformers · NumPy · Pydantic · PyJWT · pypdf · Redis · Celery · OpenTelemetry · unittest
 
-The Qdrant collection uses 1,536-dimensional vectors and cosine similarity. Service addresses are currently fixed in the source code.
+The Qdrant collection uses 1,536-dimensional vectors and cosine similarity. Service URLs and model names are configurable through environment variables; defaults preserve the existing host setup.
+
+### Docker Compose (isolated deployment)
+
+[Day 27 Docker guide](docs/day27-docker.md) covers the API, Celery worker, Qdrant,
+and Redis deployment. Copy `.env.example` to the ignored `.env.compose`, fill in
+runtime credentials, and keep the existing local `.env` unchanged. Use a separate
+project and **18001** alongside the existing API on 8001:
+
+```bash
+dc() { API_PORT=18001 docker compose --env-file .env.compose -p enterprise-rag-docker "$@"; }
+dc config --quiet
+dc build api
+dc up -d --wait qdrant redis
+dc run --rm --no-deps api python -m src.vector_store.init_collection
+dc up -d --no-build --wait --wait-timeout 600 api worker
+# Stop/remove this project's containers; retain all named volumes:
+dc down
+```
+
+Compose defaults to host API port 8001 when no override is supplied. Its Qdrant
+and Redis ports are internal only, with separate project-scoped persistent
+volumes and a model cache. Existing `stupefied_dewdney`, `enterprise-rag-redis`, and
+their data remain separate. Collection creation is explicit; startup never
+migrates or re-ingests documents. Do not delete volumes. First API startup downloads
+public reranker weights; queries and optional ingestion require paid OpenAI access.
 
 ### 7.1. Prepare the Environment
 
@@ -461,7 +486,7 @@ The project currently provides a working engineering foundation for developing a
 | Tracing currently uses console/in-memory exporters; no persistent telemetry backend or alerting | Add trace storage, dashboards, alerting, and production telemetry hygiene |
 | Performance samples are small, sequential, and sensitive to cache state | Larger repeatable workloads, isolated cache scenarios, concurrency tests, and defined SLOs |
 | Citation formatting sometimes requires a second generation attempt | Improve citation adherence and measure retry rate on broader workloads |
-| Dependencies are not fully pinned and deployment packaging is absent | Reproducible installation and deployment configuration |
+| Docker dependencies/images are pinned; host requirements remain partly unpinned | Keep pins current, validate other architectures, and add production hardening |
 
 ## 9. Key Engineering Takeaways
 

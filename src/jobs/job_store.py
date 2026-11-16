@@ -1,10 +1,11 @@
 import redis
 
 
-redis_client = redis.Redis(
-    host="localhost",
-    port=6381,
-    db=1,
+from src.config import REDIS_JOBS_URL
+
+
+redis_client = redis.Redis.from_url(
+    REDIS_JOBS_URL,
     decode_responses=True
 )
 

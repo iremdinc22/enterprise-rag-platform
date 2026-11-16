@@ -12,8 +12,9 @@ from qdrant_client.models import (
 )
 
 
-QDRANT_URL = "http://localhost:6333"
-COLLECTION_NAME = "enterprise_documents"
+from src.config import QDRANT_URL, QDRANT_COLLECTION
+
+COLLECTION_NAME = QDRANT_COLLECTION
 EMBEDDING_DIMENSION = 1536
 
 

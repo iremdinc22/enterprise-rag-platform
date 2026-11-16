@@ -1,9 +1,11 @@
 from sentence_transformers import CrossEncoder
 
 
-MODEL_NAME = "cross-encoder/ms-marco-MiniLM-L6-v2"
+from src.config import RERANKER_MODEL, RERANKER_REVISION
 
-model = CrossEncoder(MODEL_NAME)
+MODEL_NAME = RERANKER_MODEL
+
+model = CrossEncoder(MODEL_NAME, revision=RERANKER_REVISION)
 
 
 def rerank(query, candidates, limit=3):

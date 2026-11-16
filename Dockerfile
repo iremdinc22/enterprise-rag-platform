@@ -8,8 +8,8 @@ WORKDIR /app
 COPY requirements.txt requirements-docker.txt ./
 RUN groupadd --gid 10001 app \
     && useradd --uid 10001 --gid app --create-home app \
-    && mkdir -p /home/app/.cache/huggingface \
-    && chown -R app:app /home/app/.cache
+    && mkdir -p /home/app/.cache/huggingface /demo/uploads \
+    && chown -R app:app /home/app/.cache /demo
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.14.0+cpu \
     && pip install --no-cache-dir -r requirements.txt -r requirements-docker.txt \
     && pip check

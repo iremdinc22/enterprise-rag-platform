@@ -1,0 +1,119 @@
+# Standalone file: never merge with compose.yaml or attach existing volumes/networks.
+name: enterprise-rag-demo
+
+x-demo: &demo
+  image: enterprise-rag-demo-app:day30
+  build:
+    context: .
+  init: true
+  environment:
+    DEMO_ENABLED: "1"
+    DEMO_PROVIDER_MODE: ${DEMO_PROVIDER_MODE:-disabled}
+    DEMO_JWT_SECRET: ${DEMO_JWT_SECRET:?Set a new demo-only signing secret}
+    PYTHON_DOTENV_DISABLED: "1"
+    QDRANT_URL: http://qdrant:6333
+    QDRANT_COLLECTION: enterprise_demo_documents
+    CELERY_BROKER_URL: redis://redis:6379/0
+    REDIS_JOBS_URL: redis://redis:6379/1
+    REDIS_CACHE_URL: redis://redis:6379/2
+    DEMO_UPLOAD_ROOT: /demo/uploads
+    DEMO_MAX_UPLOAD_BYTES: ${DEMO_MAX_UPLOAD_BYTES:-5242880}
+    DEMO_MAX_PDF_PAGES: ${DEMO_MAX_PDF_PAGES:-10}
+    DEMO_MAX_CHUNKS: ${DEMO_MAX_CHUNKS:-200}
+    HF_HOME: /home/app/.cache/huggingface
+    HF_HUB_OFFLINE: "1"
+    TRANSFORMERS_OFFLINE: "1"
+    RAG_TRACING_ENABLED: "false"
+  volumes:
+    - model_cache:/home/app/.cache/huggingface
+  networks: [demo]
+  depends_on:
+    qdrant: {condition: service_healthy}
+    redis: {condition: service_healthy}
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+
+services:
+  frontend:
+    image: enterprise-rag-demo-app:day30
+    build:
+      context: .
+    init: true
+    command: [python, -m, src.demo.frontend]
+    ports:
+      - "127.0.0.1:${DEMO_PORT:-18030}:5173"
+    # Docker Desktop needs a non-internal network for the loopback port binding.
+    # Only this secret-free placeholder joins edge; backend remains internal.
+    networks: [demo, edge]
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5173/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+
+  api:
+    <<: *demo
+    command: [python, -m, src.demo.run, api]
+    volumes:
+      - model_cache:/home/app/.cache/huggingface
+      - uploads:/demo/uploads
+    # Liveness allows first startup before explicit collection initialization.
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  worker:
+    <<: *demo
+    command: [python, -m, src.demo.run, worker]
+    volumes:
+      - model_cache:/home/app/.cache/huggingface
+      - uploads:/demo/uploads:ro
+    stop_grace_period: 60s
+    healthcheck:
+      test: [CMD, python, -m, src.demo.run, worker-ping]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  qdrant:
+    image: qdrant/qdrant@sha256:12364fe851b9f17356fc88189fc06d1b521262e04659ec7345975b00c9246a10
+    networks: [demo]
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333; printf \"GET /readyz HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n\" >&3; read -r response <&3; [[ $$response == *\"200\"* ]]'"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
+    command: [redis-server, --appendonly, "yes"]
+    networks: [demo]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+networks:
+  demo:
+    internal: true
+  edge:
+    internal: false
+
+volumes:
+  uploads:
+  qdrant_data:
+  redis_data:
+  model_cache:

@@ -14,6 +14,7 @@ OpenTelemetry spans plus request-local usage tracking support evaluation.
 - [Architecture](docs/architecture.md): components, data flow, tenant isolation and technical limits.
 - [API](docs/api.md): endpoints, JWT requirements, schemas, errors and Swagger/Postman checks.
 - [Deployment](docs/deployment.md): local setup, Docker Compose, configuration and persistent storage.
+- [Local demo infrastructure](docs/demo.md): isolated configuration and placeholder; startup requires approval.
 - [Testing](docs/testing.md): deterministic E2E coverage, controlled live testing, results and limitations.
 
 ## Run locally

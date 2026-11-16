@@ -87,3 +87,6 @@ limitations. Further live runs require explicit approval and may incur charges.
 This repository provides a developer deployment and measured functional coverage.
 Operational controls such as TLS, backups, token revocation and tenant provisioning
 require separate deployment design; current pipeline limitations are documented.
+
+The isolated [React dashboard](docs/demo-dashboard.md) provides tenant login, document
+management and cited questions. Provider-dependent actions remain disabled by default.

@@ -18,3 +18,16 @@ evaluation/results/
 **/*.pem
 **/*.key
 .git/
+
+!frontend/
+!frontend/**
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+# Keep secret exclusions after frontend allow rules: later patterns take priority.
+**/.env*
+**/*.pem
+**/*.key
+**/__pycache__/
+**/*.py[cod]
+**/.DS_Store

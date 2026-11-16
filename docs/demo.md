@@ -4,8 +4,9 @@
 
 TASK-030.3 supplies isolated infrastructure; TASK-030.4 adds demo-only sessions.
 Demo upload and job tracking contracts are in [the upload guide](demo-uploads.md).
-There is no React dashboard, document listing/PDF retrieval API, or simulated provider yet. The frontend is a static Python
-placeholder, to be replaced by React/TypeScript/Vite and its same-origin API proxy.
+The React + TypeScript dashboard provides login, tenant-owned document listing,
+authenticated PDF downloads, upload/job tracking and cited queries. See
+[dashboard development](demo-dashboard.md). Simulated provider mode is not implemented.
 **Do not start this stack until explicitly approved.** Commands below are for that
 later approved operation; configuration validation/tests do not start services.
 
@@ -230,7 +231,8 @@ them. No documents were ingested and no provider calls were made.
 
 Rate state is per process and resets on restart; it is not a distributed auth
 service. Token refresh, revocation and account management are not implemented.
-Passwords require operator setup; there are no default passwords. The placeholder
-has no API proxy or login UI yet. Document listing and PDF viewing are not implemented. Upload/job adapters exist
+Passwords require operator setup; there are no default passwords. The frontend
+now uses a same-origin nginx proxy and serves source PDF downloads. Inline PDF
+viewing is not implemented. Upload/job adapters exist
 but admission remains disabled until a simulated provider is separately approved.
 No real provider calls, public deployment or hard billing-cap mechanism is supplied.

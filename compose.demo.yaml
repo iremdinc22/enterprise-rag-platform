@@ -35,20 +35,19 @@ x-demo: &demo
 
 services:
   frontend:
-    image: enterprise-rag-demo-app:day30
+    image: enterprise-rag-demo-frontend:day30
     build:
       context: .
+      dockerfile: frontend/Dockerfile
     init: true
-    command: [python, -m, src.demo.frontend]
     ports:
       - "127.0.0.1:${DEMO_PORT:-18030}:5173"
-    # Docker Desktop needs a non-internal network for the loopback port binding.
-    # Only this secret-free placeholder joins edge; backend remains internal.
+    # Only the secret-free frontend proxy joins edge; backend remains internal.
     networks: [demo, edge]
     depends_on:
       api: {condition: service_healthy}
     healthcheck:
-      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5173/health', timeout=3)"]
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:5173/health"]
       interval: 15s
       timeout: 5s
       retries: 3

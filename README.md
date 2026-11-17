@@ -118,3 +118,6 @@ labeled deterministic, API-free demo remain unchanged. See the
 [benchmark and architectural decision](docs/local-llm-benchmark.md) for evidence,
 evaluation subsets and limitations. These standalone measurements do not validate
 concurrent Docker/Ollama deployment.
+
+For the evaluation journey and decision rationale, read the
+[local LLM decision summary](docs/local-llm-decision-summary.md).

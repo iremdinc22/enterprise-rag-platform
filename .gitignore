@@ -34,3 +34,7 @@ qdrant_storage/
 frontend/node_modules/
 frontend/dist/
 frontend/*.tsbuildinfo
+
+# Test-only browser diagnostics (never commit sessions or downloaded PDFs)
+frontend/test-results/
+frontend/playwright-report/

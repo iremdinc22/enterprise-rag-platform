@@ -1,0 +1,81 @@
+name: Atlas Demo E2E
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: atlas-demo-e2e
+  cancel-in-progress: false
+jobs:
+  validation:
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      COMPOSE_PARALLEL_LIMIT: '1'
+      PYTHON_DOTENV_DISABLED: '1'
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+    steps:
+      - name: Checkout committed source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6, verified via GitHub API
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22.17.0'
+      - name: Install test-only tools
+        timeout-minutes: 5
+        run: |
+          python3 -m pip install --disable-pip-version-check -r tests/ci/requirements.txt
+          npm --prefix frontend ci --no-audit --no-fund
+          npm --prefix frontend run typecheck:e2e
+          cd frontend
+          npx --no-install playwright install --with-deps chromium
+      - name: Preflight and private runtime setup
+        timeout-minutes: 2
+        run: ./scripts/ci-demo-e2e.sh prepare
+      - name: Build fresh images sequentially
+        timeout-minutes: 22
+        run: ./scripts/ci-demo-e2e.sh build
+      - name: Existing 18 controlled-provider Docker scenarios
+        timeout-minutes: 5
+        run: ./scripts/ci-demo-e2e.sh controlled
+      - name: Start five-service deterministic demo and verify provenance
+        timeout-minutes: 5
+        run: ./scripts/ci-demo-e2e.sh start
+      - name: Browser authentication and fresh empty libraries
+        timeout-minutes: 3
+        run: ./scripts/ci-demo-e2e.sh browser-empty
+      - name: Existing HTTP checks and additional authorization checks
+        timeout-minutes: 4
+        run: ./scripts/ci-demo-e2e.sh http
+      - name: Allow original login and query rate windows to expire
+        timeout-minutes: 2
+        run: sleep 61
+      - name: Real authenticated dashboard workflows and screenshots
+        timeout-minutes: 5
+        run: ./scripts/ci-demo-e2e.sh browser-workflow
+      - name: Always clean only run-owned Docker resources and credentials
+        if: ${{ always() }}
+        timeout-minutes: 3
+        run: ./scripts/ci-demo-e2e.sh cleanup
+      - name: Validate and stage allowlisted artifacts
+        if: ${{ always() }}
+        timeout-minutes: 1
+        run: ./scripts/ci-demo-e2e.sh publish
+      - name: Upload sanitized validation evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: atlas-demo-validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/atlas-validation-${{ github.run_id }}-${{ github.run_attempt }}/publish/
+          if-no-files-found: ignore
+          include-hidden-files: false
+          retention-days: 7
+          compression-level: 6

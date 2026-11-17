@@ -337,3 +337,157 @@ network-free provider contracts and the explicitly invoked `tests.demo_e2e` HTTP
 runner against the isolated demo stack. Its synthetic uploads exercise the actual
 Celery/Qdrant/retrieval/citation path without external inference. It does not
 replace the existing 18 isolated infrastructure E2E scenarios or real LLM evaluation.
+
+## Manual GitHub Actions demo validation
+
+The **Atlas Demo E2E** workflow is defined in
+[demo-e2e.yml](../.github/workflows/demo-e2e.yml). It is manual-only, runs on one
+standard `ubuntu-24.04` GitHub-hosted VM, and has a 60-minute job ceiling. It does
+not deploy, publish images, invoke OpenAI/Ollama, or run against existing data.
+The job is gated to public repositories to preserve the standard-runner compute
+cost assumption; it does not change repository visibility.
+The original 339-test checkpoint remains separate evidence; this workflow focuses
+on the previously outstanding Docker/HTTP/browser integration, not repeating those
+unit/component suites.
+
+### Execution and evidence
+
+After separately approved commit/push places the workflow on the default branch:
+
+1. Open GitHub **Actions → Atlas Demo E2E → Run workflow** and choose the intended
+   committed revision. The checkout SHA is checked and stored with image IDs and
+   served frontend asset hashes.
+2. Wait for both isolated environments to complete. Do not automatically rerun a
+   failed ingestion/query; inspect sanitized reports first.
+3. Download `atlas-demo-validation-<run-id>-<attempt>` from the run's **Artifacts**
+   section within seven days. This is an artifact download, not a deployed site.
+4. Review `controlled.json`, `http.json`, `authorization.json`, browser reports,
+   provenance, stage timing and resource samples. A successful run must have
+   **18/18** controlled scenarios, **12 grouped HTTP checks**, **9 additional
+   authorization/session checks**, and both browser tests passing.
+
+There is no workflow-dispatch execution in ordinary local test discovery. The
+orchestrator rejects invocation outside an explicitly identified GitHub Actions
+Linux environment. Its network-free helper tests can be run locally:
+
+```sh
+python -m unittest tests.test_ci_demo -v
+bash -n scripts/ci-demo-e2e.sh
+# Test discovery only: does not launch Chromium, Docker or application requests.
+GITHUB_ACTIONS=true ATLAS_CI_DIR=/tmp/atlas-discovery \
+  npm --prefix frontend run test:e2e -- --list
+npm --prefix frontend run typecheck:e2e
+```
+
+### Isolation and sequence
+
+The [CI helper](../tests/ci/demo.py) generates private run-specific Compose JSON
+from the committed configurations, substituting only test image tags. No private
+repository env file is loaded. Application/frontend images build freshly with
+`--pull --no-cache`, sequentially; all application services and the controlled E2E
+runner reuse the one application image.
+
+First, the unchanged 18-scenario suite runs through its controlled provider
+bootstrap, isolated network and tmpfs databases. It is not the demo provider.
+That project is shut down before the actual five-service deterministic demo
+starts. Demo Qdrant/Redis/uploads/model cache use separate, newly created named
+volumes. Collection initialization is explicit. Only the frontend is published,
+on `127.0.0.1:18030`; backend services remain on the internal network.
+
+The preflight refuses existing project resources, image tags, host-data bind
+mounts, external volumes, unsafe port exposure, provider keys and occupied port
+18030. Runtime checks verify internal networking, all five healthy services,
+container image identity/revision and HTTP asset hashes against the built image.
+No registry publishing or model download occurs. Dependency/image/browser downloads
+are required during setup/build; application inference never goes external.
+
+### Live coverage and screenshots
+
+The existing [HTTP runner](../tests/demo_e2e.py) creates synthetic Orion/Nebula PDFs
+and exercises login, empty-corpus abstention, Celery completion, document listing,
+exact PDF downloads, tenant-specific answers/page citations, idempotent replay,
+conflict and corrupt-file rejection, cross-tenant job/PDF denial and foreign-fact
+abstention. Its cache-enabled repeat verifies valid repeated evidence; the public
+query contract does **not** expose a cache HIT/MISS indicator. The separate 18-case
+suite includes direct cache HIT/bypass/tenant-isolation assertions.
+
+[Playwright](../frontend/e2e/demo.e2e.ts) uses one headless Chromium worker, no
+workflow/browser retries and real application responses. Existing bounded Celery
+retry semantics are preserved and explicitly exercised by the controlled suite. It checks both demo accounts, invalid
+credentials, empty libraries, file chooser and DataTransfer drag/drop uploads,
+real job polling to Ready, tenant-specific document sets, deterministic answers,
+page citations, authenticated download hashes, unsupported/lexically mismatched
+questions, logout, pending old-session cancellation and account switching.
+Loading-state tests temporarily gate request dispatch, then continue the genuine
+request; no response is mocked or replaced. This is a pending-request cancellation
+test, not proof that every possible late server response race is eliminated.
+
+The frontend session timer is tested with a controlled browser clock. An expired
+signed JWT and a forged token are separately rejected over real HTTP; the suite
+does not wait fifteen wall-clock minutes for a live session. Additional checks
+cover missing/extra login fields, generic unknown-account errors, no-store session
+headers, client tenant override, employee upload denial and pagination validation.
+
+Actual dashboard screenshots cover login, workspace/library, cited answer, mobile
+library/answer, tablet and 1280px desktop. Viewports are 1440×900, 1280×800,
+768×1024 and 390×844. Tests check horizontal overflow and browser/page errors;
+expected 401/422 resource-console errors are narrowly scoped to negative cases.
+The images show synthetic data and the simulation label, not real LLM answers.
+Linux font rendering may differ from macOS; screenshot capture is not a claim of
+pixel-perfect cross-platform equivalence or a complete accessibility audit.
+
+### Secrets, artifacts and cleanup
+
+Passwords, scrypt hashes, JWT signing material and resolved Compose files are
+created privately at runtime. Browser tokens remain in application memory.
+Login screenshots require an empty password field and are captured before
+credentials are entered. No GitHub repository secret or paid
+provider credential is required. Production query/upload quotas remain unchanged;
+a single 61-second pause separates the HTTP and main browser phases to respect
+existing rolling login/query limits. Ingestion status polling is bounded.
+
+The custom browser reporter records only fixed test names, status, duration and
+an optional repository source line; it discards raw errors, API bodies, steps and
+attachments. Traces, videos, HAR, automatic screenshots and storage-state exports
+are disabled. Only explicit JSON/PNG names pass publication, with JSON/PNG format,
+secret-pattern, actual runtime-secret and size checks. Target size is below 30 MB;
+publication refuses totals above 50 MB (decimal bytes). Artifacts are retained for seven days and
+may be readable by people with repository read access. Never add raw Docker logs,
+private env/config files, credential files or downloaded PDF directories to uploads.
+
+Always-run cleanup shuts down only run-owned Compose projects, removes only
+individually verified run-owned volumes and run-specific image tags, and deletes
+private credential/config files even if Docker cleanup fails. No `down -v`, global
+prune, existing-data reset or unrelated-project operation is used. A runner loss or
+hard job termination can interrupt cleanup; the hosted VM is disposable, but an
+artifact is not guaranteed after infrastructure failure.
+
+### Resources, cost and current verification limits
+
+Preflight requires at least 6 GiB available RAM and 10 GiB free workspace disk.
+A five-second monitor stops new/active orchestration commands after sustained
+available RAM below 768 MiB (15 seconds), or disk below 1 GiB. The validation work
+has a 50-minute internal deadline, leaving time for cleanup/publication within the
+60-minute job limit. Client cancellation does not guarantee immediate cancellation
+of Docker daemon build work; subsequent phases stop and scoped cleanup is attempted.
+The same monitor applies during browser commands; a missing/stale heartbeat also
+blocks work. Resource-intensive phases never
+run concurrently. Cold build/dependency availability and peak disk usage still
+need measurement in the first approved run; a full dependency build can exceed
+these initial time/disk estimates.
+
+Expected first-run duration is approximately 30–50 minutes, not a measured result.
+For this public repository, standard GitHub-hosted compute is free. GitHub Pro's
+current included private compute value is $18/month (roughly 3000 standard Linux
+minutes at $0.006/minute), with 1 GB artifact storage; actual account usage/billing
+settings have not been inspected. Small seven-day artifacts are expected to fit
+available allowance, but storage is not an unlimited guarantee. See official
+[runner resources](https://docs.github.com/en/actions/reference/runners/github-hosted-runners),
+[billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
+and [Playwright CI guidance](https://playwright.dev/docs/ci).
+
+This infrastructure has not yet been executed on GitHub at implementation time.
+Static checks and discovery do not prove image build, runtime integration or final
+release readiness. A passing run validates a synthetic localhost deterministic
+demo; it does not establish real LLM quality, production security/readiness, or
+compatibility with the original macOS deployment.

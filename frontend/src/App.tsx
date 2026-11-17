@@ -3,11 +3,9 @@ import type { FormEvent } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
+  ChevronDown,
   BookOpen,
-  Check,
-  ChevronLeft,
   ChevronRight,
-  Download,
   FileText,
   Layers3,
   LoaderCircle,
@@ -15,21 +13,14 @@ import {
   Plus,
   ShieldCheck,
   Sparkles,
-  UploadCloud,
 } from "lucide-react";
 import { Api, ApiError, message } from "./api";
+import DocumentLibrary from "./DocumentLibrary";
+import AnswerPanel from "./AnswerPanel";
 import type { Answer, Document, Session, Status } from "./api";
 
 const terminal = (status: Status) =>
   status === "completed" || status === "failed";
-const labels: Record<Status, string> = {
-  completed: "Ready",
-  failed: "Failed",
-  queued: "Queued",
-  processing: "Processing",
-  retrying: "Retrying",
-  submission_unknown: "Confirmation pending",
-};
 function Alert({ text }: { text: string }) {
   return (
     <div className="alert" role="alert">
@@ -199,6 +190,8 @@ function Workspace({
     [total, setTotal] = useState(0),
     [offset, setOffset] = useState(0),
     [loading, setLoading] = useState(true),
+    [hasLoaded, setHasLoaded] = useState(false),
+    [showExamples, setShowExamples] = useState(false),
     [error, setError] = useState(""),
     [service, setService] = useState("Checking service"),
     [providerOff, setProviderOff] = useState(false),
@@ -210,6 +203,8 @@ function Workspace({
     [asking, setAsking] = useState(false),
     [queryError, setQueryError] = useState(""),
     [downloading, setDownloading] = useState("");
+  const uploadBusy = useRef(false);
+  const questionInput = useRef<HTMLTextAreaElement>(null);
   const uploadKeys = useRef(new Map<string, string>());
   const jobs = useRef(new Map<string, Status>()),
     input = useRef<HTMLInputElement>(null),
@@ -230,6 +225,7 @@ function Workspace({
       const result = await api.documents(page);
       if (alive.current && version === listVersion.current) {
         setDocs(result.documents);
+        setHasLoaded(true);
         setTotal(result.total);
         setError("");
         result.documents
@@ -319,8 +315,16 @@ function Workspace({
       clearTimeout(timer);
     };
   }, [offset]);
+  function receiveFiles(files: File[]) {
+    if (uploading || uploadBusy.current || providerOff) return;
+    if (files.length !== 1) {
+      setUploadNote("Choose exactly one PDF at a time.");
+      return;
+    }
+    void upload(files[0]);
+  }
   async function upload(file?: File) {
-    if (!file || uploading) return;
+    if (!file || uploading || uploadBusy.current || providerOff) return;
     setUploadNote("");
     if (file.size > 5 * 1024 * 1024) {
       setUploadNote("Choose a PDF smaller than or equal to 5 MiB.");
@@ -330,6 +334,7 @@ function Workspace({
       setUploadNote("Choose a non-empty PDF document.");
       return;
     }
+    uploadBusy.current = true;
     setUploading(true);
     try {
       const digest = Array.from(
@@ -345,7 +350,13 @@ function Workspace({
       if (!alive.current) return;
       if (!terminal(result.status))
         jobs.current.set(result.job_id, result.status);
-      setUploadNote("PDF accepted. Tracking ingestion status.");
+      setUploadNote(
+        result.status === "completed"
+          ? "Document is ready for questions."
+          : result.status === "failed"
+            ? "Ingestion failed. The source PDF is still available."
+            : "PDF accepted. Tracking ingestion status.",
+      );
       void refresh(offset);
     } catch (e) {
       if (e instanceof ApiError && e.code === "submission_unknown" && e.jobId) {
@@ -356,13 +367,15 @@ function Workspace({
           );
       } else fail(e, setUploadNote);
     } finally {
+      uploadBusy.current = false;
       if (alive.current) setUploading(false);
       if (input.current) input.current.value = "";
     }
   }
   async function ask(e: FormEvent) {
     e.preventDefault();
-    if (asking || !question.trim() || question.length > 2000) return;
+    if (asking || providerOff || !question.trim() || question.length > 2000)
+      return;
     setAsking(true);
     setQueryError("");
     setAnswer(null);
@@ -400,6 +413,9 @@ function Workspace({
   const tenant = session.user.tenant_id.toUpperCase();
   return (
     <div className="shell">
+      <a className="skip-link" href="#workspace-content">
+        Skip to workspace
+      </a>
       <aside className="sidebar">
         <div className="brand">
           <Layers3 /> atlas<span> / rag</span>
@@ -409,18 +425,21 @@ function Workspace({
           <div className="tenant-avatar">{tenant.slice(0, 1)}</div>
           <div>
             <strong>{tenant}</strong>
-            <span>Private knowledge space</span>
+            <span>Private workspace</span>
           </div>
           <ShieldCheck size={16} />
         </div>
-        <nav>
+        <nav aria-label="Workspace navigation">
           <button
+            aria-current={tab === "documents" ? "page" : undefined}
             className={tab === "documents" ? "active" : ""}
             onClick={() => setTab("documents")}
           >
-            <FileText size={19} /> Documents <span>{total}</span>
+            <FileText size={19} /> Documents{" "}
+            <span>{hasLoaded ? total : "—"}</span>
           </button>
           <button
+            aria-current={tab === "ask" ? "page" : undefined}
             className={tab === "ask" ? "active" : ""}
             onClick={() => setTab("ask")}
           >
@@ -435,6 +454,8 @@ function Workspace({
           </div>
           <button
             className="session"
+            aria-label="Switch account / sign out"
+            title="Switch account / sign out"
             onClick={() => {
               controller.current.abort();
               end();
@@ -461,7 +482,7 @@ function Workspace({
             <span className="local">LOCAL DEMO</span>
           </div>
         </header>
-        <main className="content">
+        <main className="content" id="workspace-content" tabIndex={-1}>
           <div className="page-heading">
             <div>
               <div className="eyebrow">{tenant} KNOWLEDGE WORKSPACE</div>
@@ -507,147 +528,38 @@ function Workspace({
               </p>
             </div>
             <span className="pill">
-              {simulated && !providerOff ? "LOCAL SIMULATION" : "SAFE BY DEFAULT"}
+              {simulated && !providerOff
+                ? "LOCAL SIMULATION"
+                : "SAFE BY DEFAULT"}
             </span>
           </div>
           {error && <Alert text={error} />}
           {tab === "documents" ? (
-            <>
-              <input
-                ref={input}
-                aria-label="Select PDF"
-                type="file"
-                accept="application/pdf,.pdf"
-                className="hidden"
-                onChange={(e) => void upload(e.target.files?.[0])}
-              />
-              <div className="section-title">
-                <div>
-                  <h2>
-                    Document library <span>{total}</span>
-                  </h2>
-                  <p>Your original PDFs and their ingestion status.</p>
-                </div>
-                <button
-                  className="text-button"
-                  onClick={() => void refresh()}
-                  disabled={loading}
-                >
-                  Refresh
-                </button>
-              </div>
-              {uploadNote && (
-                <div className="notice" role="status">
-                  {uploadNote}
-                </div>
-              )}
-              {uploading && (
-                <div className="notice" role="status">
-                  <LoaderCircle className="spin" size={16} /> Preparing your
-                  PDF. Please keep this workspace open.
-                </div>
-              )}
-              {loading ? (
-                <div className="document-grid" aria-label="Loading documents">
-                  {[1, 2, 3].map((n) => (
-                    <div className="skeleton" key={n} />
-                  ))}
-                </div>
-              ) : docs.length ? (
-                <div className="document-grid">
-                  {docs.map((d) => (
-                    <article className="document-card" key={d.document_id}>
-                      <div className="card-top">
-                        <div className="pdf-icon">
-                          <FileText size={25} />
-                          <small>PDF</small>
-                        </div>
-                        <span className={"status " + d.status}>
-                          {d.status === "completed" && <Check size={12} />}{" "}
-                          {!terminal(d.status) && (
-                            <span className="status-dot" />
-                          )}
-                          {labels[d.status]}
-                        </span>
-                      </div>
-                      <h3 title={d.filename}>{d.filename}</h3>
-                      <p className="file-meta">
-                        {d.page_count} {d.page_count === 1 ? "page" : "pages"}{" "}
-                        <span>·</span> {(d.size_bytes / 1024).toFixed(1)} KB
-                      </p>
-                      <div className="card-footer">
-                        <span>
-                          {new Date(d.created_at).toLocaleDateString(
-                            undefined,
-                            { month: "short", day: "numeric", year: "numeric" },
-                          )}
-                        </span>
-                        <button
-                          aria-label={"Download " + d.filename}
-                          onClick={() =>
-                            void download(d.document_id, d.filename)
-                          }
-                          disabled={!!downloading}
-                        >
-                          {downloading === d.document_id ? (
-                            <LoaderCircle className="spin" size={17} />
-                          ) : (
-                            <Download size={17} />
-                          )}
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <div className="empty">
-                  <div className="empty-orbit">
-                    <FileText size={32} />
-                  </div>
-                  <h3>Your knowledge starts here</h3>
-                  <p>
-                    Upload a PDF to build {tenant}’s private library.
-                    <br />
-                    Every document stays within this workspace.
-                  </p>
-                  <button
-                    className="primary"
-                    disabled={providerOff || uploading}
-                    onClick={() => input.current?.click()}
-                  >
-                    <UploadCloud size={18} /> Choose your first PDF
-                  </button>
-                  <small>PDF only · 5 MiB · 10 pages maximum</small>
-                </div>
-              )}
-              <div className="pagination">
-                <span>
-                  {total === 0
-                    ? "0 documents"
-                    : `${offset + 1}–${Math.min(offset + 20, total)} of ${total}`}
-                </span>
-                <button
-                  aria-label="Previous page"
-                  disabled={offset === 0 || loading}
-                  onClick={() => setOffset((v) => Math.max(0, v - 20))}
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  aria-label="Next page"
-                  disabled={offset + 20 >= total || loading}
-                  onClick={() => setOffset((v) => v + 20)}
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-              <div className="library-note">
-                <ShieldCheck size={16} />
-                <span>Tenant-scoped access</span>
-                <span>Original source downloads</span>
-                <span>Verifiable document IDs</span>
-              </div>
-            </>
+            <DocumentLibrary
+              documents={docs}
+              total={total}
+              offset={offset}
+              loading={loading}
+              hasLoaded={hasLoaded}
+              error={error}
+              uploading={uploading}
+              providerOff={providerOff}
+              uploadNote={uploadNote}
+              downloading={downloading}
+              fileInput={input}
+              onFiles={receiveFiles}
+              onRefresh={() => void refresh()}
+              onPage={(next) => {
+                listVersion.current++;
+                setDocs([]);
+                setHasLoaded(false);
+                setLoading(true);
+                setError("");
+                setOffset(next);
+              }}
+              onDismissNote={() => setUploadNote("")}
+              onDownload={(id, filename) => void download(id, filename)}
+            />
           ) : (
             <section className="ask-layout">
               <div className="ask-card">
@@ -661,6 +573,18 @@ function Workspace({
                     Your question
                   </label>
                   <textarea
+                    ref={questionInput}
+                    rows={2}
+                    aria-describedby="question-counter question-help"
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "Enter" &&
+                        (event.ctrlKey || event.metaKey)
+                      ) {
+                        event.preventDefault();
+                        event.currentTarget.form?.requestSubmit();
+                      }
+                    }}
                     id="question"
                     placeholder="Ask a question about your documents…"
                     value={question}
@@ -669,7 +593,7 @@ function Workspace({
                     disabled={asking}
                   />
                   <div className="composer-footer">
-                    <span>{question.length} / 2,000</span>
+                    <span id="question-counter">{question.length} / 2,000</span>
                     <button
                       aria-label="Ask question"
                       className="primary"
@@ -688,51 +612,56 @@ function Workspace({
                     </button>
                   </div>
                 </form>
-                <small>
-                  One request at a time. Demo rate and usage limits apply.
+                <div className="question-examples">
+                  <button
+                    type="button"
+                    className="example-toggle"
+                    aria-expanded={showExamples}
+                    aria-controls="example-questions"
+                    onClick={() => setShowExamples((value) => !value)}
+                  >
+                    Example questions{" "}
+                    <ChevronDown size={14} aria-hidden="true" />
+                  </button>
+                  {showExamples && (
+                    <div id="example-questions">
+                      <p>Edit a suggestion to match your documents.</p>
+                      <div className="example-chips">
+                        {[
+                          "What is the remote work allowance?",
+                          "What is the annual leave allowance?",
+                          "What is the reimbursement limit?",
+                        ].map((text) => (
+                          <button
+                            type="button"
+                            key={text}
+                            disabled={asking || providerOff}
+                            onClick={() => {
+                              setQuestion(text);
+                              questionInput.current?.focus();
+                            }}
+                          >
+                            {text}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <small id="question-help">
+                  One request at a time. Demo rate and usage limits apply.{" "}
+                  <kbd>⌘ / Ctrl + Enter</kbd> to submit.
                 </small>
               </div>
               {queryError && <Alert text={queryError} />}{" "}
-              {answer ? (
-                <article className="answer-card">
-                  <div className="eyebrow">
-                    <Sparkles size={15} /> ANSWER WITH EVIDENCE
-                  </div>
-                  <p className="answer-text">{answer.answer}</p>
-                  <h3>Sources</h3>
-                  <div className="citations">
-                    {answer.citations.flatMap((c) =>
-                      c.sources.map((s, i) => (
-                        <button
-                          key={`${c.citation_id}-${i}`}
-                          disabled={!!downloading}
-                          onClick={() =>
-                            void download(s.document_id, s.filename)
-                          }
-                        >
-                          <span className="citation-id">{c.citation_id}</span>
-                          <span>
-                            <strong>{s.filename}</strong>
-                            <small>Page {s.page} · Download source PDF</small>
-                          </span>
-                          <Download size={16} />
-                        </button>
-                      )),
-                    )}
-                  </div>
-                  <p className="fine">
-                    Verify the answer against the cited page in the original
-                    PDF.
-                  </p>
-                </article>
-              ) : (
-                !asking && (
-                  <div className="ask-empty">
-                    <BookOpen size={24} />
-                    <p>Your answer and source citations will appear here.</p>
-                  </div>
-                )
-              )}
+              <AnswerPanel
+                answer={answer}
+                asking={asking}
+                hasError={!!queryError}
+                downloading={downloading}
+                onDownload={(id, filename) => void download(id, filename)}
+                onEdit={() => questionInput.current?.focus()}
+              />
             </section>
           )}
           <footer className="footer">

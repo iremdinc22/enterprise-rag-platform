@@ -1,0 +1,434 @@
+{
+  "results": [
+    {
+      "type": "baseline",
+      "t": 0.0,
+      "pressure": 1,
+      "swap_mib": 648.38,
+      "compressed_mib": 2067.7
+    },
+    {
+      "type": "embedding",
+      "label": "document_batch_check",
+      "n": 4,
+      "seconds": 0.443,
+      "load_s": 0.38,
+      "tokens": 71,
+      "dimensions": 768
+    },
+    {
+      "type": "embedding",
+      "label": "query_batch_check",
+      "n": 4,
+      "seconds": 0.044,
+      "load_s": 0.012,
+      "tokens": 69,
+      "dimensions": 768
+    },
+    {
+      "type": "embedding",
+      "label": "orion_exact_single",
+      "n": 1,
+      "seconds": 0.02,
+      "load_s": 0.009,
+      "tokens": 16,
+      "dimensions": 768
+    },
+    {
+      "type": "single_retrieval",
+      "label": "orion_exact",
+      "top1": 0,
+      "expected": 0,
+      "pass": true,
+      "batch_single_cosine": 1.0,
+      "scores": [
+        0.8727,
+        0.8608,
+        0.6077,
+        0.5563
+      ]
+    },
+    {
+      "type": "embedding",
+      "label": "orion_paraphrase_single",
+      "n": 1,
+      "seconds": 0.019,
+      "load_s": 0.008,
+      "tokens": 18,
+      "dimensions": 768
+    },
+    {
+      "type": "single_retrieval",
+      "label": "orion_paraphrase",
+      "top1": 0,
+      "expected": 0,
+      "pass": true,
+      "batch_single_cosine": 1.0,
+      "scores": [
+        0.752,
+        0.7407,
+        0.5913,
+        0.4726
+      ]
+    },
+    {
+      "type": "embedding",
+      "label": "beacon_exact_single",
+      "n": 1,
+      "seconds": 0.017,
+      "load_s": 0.007,
+      "tokens": 16,
+      "dimensions": 768
+    },
+    {
+      "type": "single_retrieval",
+      "label": "beacon_exact",
+      "top1": 0,
+      "expected": 1,
+      "pass": false,
+      "batch_single_cosine": 1.0,
+      "scores": [
+        0.8727,
+        0.8608,
+        0.6077,
+        0.5563
+      ]
+    },
+    {
+      "type": "embedding",
+      "label": "beacon_paraphrase_single",
+      "n": 1,
+      "seconds": 0.017,
+      "load_s": 0.007,
+      "tokens": 19,
+      "dimensions": 768
+    },
+    {
+      "type": "single_retrieval",
+      "label": "beacon_paraphrase",
+      "top1": 0,
+      "expected": 1,
+      "pass": false,
+      "batch_single_cosine": 1.0,
+      "scores": [
+        0.658,
+        0.6505,
+        0.6346,
+        0.4776
+      ]
+    },
+    {
+      "type": "embedding",
+      "label": "document_single_0",
+      "n": 1,
+      "seconds": 0.016,
+      "load_s": 0.006,
+      "tokens": 19,
+      "dimensions": 768
+    },
+    {
+      "type": "doc_batch_single",
+      "doc": 0,
+      "cosine": 1.0
+    },
+    {
+      "type": "embedding",
+      "label": "document_single_1",
+      "n": 1,
+      "seconds": 0.016,
+      "load_s": 0.006,
+      "tokens": 19,
+      "dimensions": 768
+    },
+    {
+      "type": "doc_batch_single",
+      "doc": 1,
+      "cosine": 1.0
+    },
+    {
+      "type": "query_pair_cosine",
+      "exact_orion_beacon": 1.0,
+      "paraphrase_orion_beacon": 0.66519993
+    },
+    {
+      "type": "production_prompt_generation",
+      "label": "orion_exact",
+      "attempt": 1,
+      "seconds": 2.407,
+      "load_s": 1.049,
+      "prompt_tokens": 386,
+      "output_tokens": 42,
+      "tokens_per_s": 62.56,
+      "schema_ok": true,
+      "citation_ok": true,
+      "evidence_ok": true,
+      "response": {
+        "answer": "Orion employees receive a remote work allowance of 500 USD per year. This is supported by [1].",
+        "answered": true,
+        "citation_ids": [
+          1
+        ]
+      },
+      "done_reason": "stop",
+      "thinking_empty": true
+    },
+    {
+      "type": "production_prompt_generation",
+      "label": "orion_paraphrase",
+      "attempt": 1,
+      "seconds": 0.888,
+      "load_s": 0.072,
+      "prompt_tokens": 388,
+      "output_tokens": 33,
+      "tokens_per_s": 63.78,
+      "schema_ok": true,
+      "citation_ok": false,
+      "evidence_ok": true,
+      "response": {
+        "answer": "Orion provides a remote work allowance of 500 USD per year.",
+        "answered": true,
+        "citation_ids": [
+          1
+        ]
+      },
+      "done_reason": "stop",
+      "thinking_empty": true
+    },
+    {
+      "type": "production_prompt_generation",
+      "label": "orion_paraphrase",
+      "attempt": 2,
+      "seconds": 0.955,
+      "load_s": 0.058,
+      "prompt_tokens": 474,
+      "output_tokens": 41,
+      "tokens_per_s": 62.53,
+      "schema_ok": true,
+      "citation_ok": true,
+      "evidence_ok": true,
+      "response": {
+        "answer": "Orion provides a remote work allowance of 500 USD per year. [1]",
+        "answered": true,
+        "citation_ids": [
+          1
+        ]
+      },
+      "done_reason": "stop",
+      "thinking_empty": true
+    },
+    {
+      "type": "production_prompt_generation",
+      "label": "beacon_exact",
+      "attempt": 1,
+      "seconds": 1.231,
+      "load_s": 0.056,
+      "prompt_tokens": 386,
+      "output_tokens": 55,
+      "tokens_per_s": 62.97,
+      "schema_ok": true,
+      "citation_ok": false,
+      "evidence_ok": false,
+      "response": {
+        "answer": "Beacon employees receive a remote work allowance of 2000 USD per year, and Orion employees receive a remote work allowance of 500 USD per year.",
+        "answered": true,
+        "citation_ids": [
+          2,
+          1
+        ]
+      },
+      "done_reason": "stop",
+      "thinking_empty": true
+    },
+    {
+      "type": "production_prompt_generation",
+      "label": "beacon_exact",
+      "attempt": 2,
+      "seconds": 1.283,
+      "load_s": 0.061,
+      "prompt_tokens": 494,
+      "output_tokens": 60,
+      "tokens_per_s": 62.12,
+      "schema_ok": true,
+      "citation_ok": false,
+      "evidence_ok": false,
+      "response": {
+        "answer": "Beacon employees receive a remote work allowance of 2000 USD per year, and Orion employees receive a remote work allowance of 500 USD per year.",
+        "answered": true,
+        "citation_ids": [
+          2,
+          1
+        ]
+      },
+      "done_reason": "stop",
+      "thinking_empty": true
+    },
+    {
+      "type": "production_prompt_generation",
+      "label": "beacon_paraphrase",
+      "attempt": 1,
+      "seconds": 0.916,
+      "load_s": 0.055,
+      "prompt_tokens": 387,
+      "output_tokens": 36,
+      "tokens_per_s": 63.56,
+      "schema_ok": true,
+      "citation_ok": false,
+      "evidence_ok": true,
+      "response": {
+        "answer": "Beacon staff can claim a remote work allowance of 2000 USD per year.",
+        "answered": true,
+        "citation_ids": [
+          2
+        ]
+      },
+      "done_reason": "stop",
+      "thinking_empty": true
+    },
+    {
+      "type": "production_prompt_generation",
+      "label": "beacon_paraphrase",
+      "attempt": 2,
+      "seconds": 1.004,
+      "load_s": 0.056,
+      "prompt_tokens": 476,
+      "output_tokens": 44,
+      "tokens_per_s": 62.7,
+      "schema_ok": true,
+      "citation_ok": true,
+      "evidence_ok": true,
+      "response": {
+        "answer": "Beacon staff can claim a remote work allowance of 2000 USD per year. [2]",
+        "answered": true,
+        "citation_ids": [
+          2
+        ]
+      },
+      "done_reason": "stop",
+      "thinking_empty": true
+    },
+    {
+      "type": "production_prompt_generation",
+      "label": "no_evidence",
+      "attempt": 1,
+      "seconds": 0.787,
+      "load_s": 0.056,
+      "prompt_tokens": 383,
+      "output_tokens": 28,
+      "tokens_per_s": 64.44,
+      "schema_ok": true,
+      "citation_ok": false,
+      "evidence_ok": false,
+      "response": {
+        "answer": "The provided sources do not mention anything about dental insurance reimbursement.",
+        "answered": false,
+        "citation_ids": []
+      },
+      "done_reason": "stop",
+      "thinking_empty": true
+    },
+    {
+      "type": "production_prompt_generation",
+      "label": "no_evidence",
+      "attempt": 2,
+      "seconds": 0.808,
+      "load_s": 0.052,
+      "prompt_tokens": 464,
+      "output_tokens": 35,
+      "tokens_per_s": 63.36,
+      "schema_ok": true,
+      "citation_ok": true,
+      "evidence_ok": true,
+      "response": {
+        "answer": "I don't have enough information in the provided sources to answer this question.",
+        "answered": false,
+        "citation_ids": []
+      },
+      "done_reason": "stop",
+      "thinking_empty": true
+    },
+    {
+      "type": "production_prompt_generation",
+      "label": "empty_context",
+      "attempt": 1,
+      "seconds": 1.937,
+      "load_s": 0.057,
+      "prompt_tokens": 338,
+      "output_tokens": 100,
+      "tokens_per_s": 62.41,
+      "schema_ok": true,
+      "citation_ok": false,
+      "evidence_ok": false,
+      "response": {
+        "answer": "The remote work allowance is a financial benefit provided to employees who work from home or remotely. It is typically calculated based on the employee's salary and the number of days they work remotely. The exact amount and conditions may vary depending on the employer's policies and local labor laws. This allowance is intended to support employees in maintaining their work-life balance and may be subject to specific eligibility criteria and payment schedules. [1]",
+        "answered": true,
+        "citation_ids": [
+          1
+        ]
+      },
+      "done_reason": "stop",
+      "thinking_empty": true
+    },
+    {
+      "type": "failure",
+      "class": "RemoteDisconnected",
+      "message": "Remote end closed connection without response"
+    }
+  ],
+  "samples": [
+    {
+      "t": 0.0,
+      "pressure": 1,
+      "swap_mib": 648.38,
+      "compressed_mib": 2067.7
+    },
+    {
+      "t": 2.0,
+      "pressure": 1,
+      "swap_mib": 648.38,
+      "compressed_mib": 2303.9
+    },
+    {
+      "t": 4.0,
+      "pressure": 2,
+      "swap_mib": 648.38,
+      "compressed_mib": 2372.4
+    },
+    {
+      "t": 6.1,
+      "pressure": 2,
+      "swap_mib": 648.38,
+      "compressed_mib": 2402.9
+    },
+    {
+      "t": 8.1,
+      "pressure": 2,
+      "swap_mib": 648.38,
+      "compressed_mib": 2398.6
+    },
+    {
+      "t": 10.1,
+      "pressure": 2,
+      "swap_mib": 648.38,
+      "compressed_mib": 2434.9
+    },
+    {
+      "t": 12.1,
+      "pressure": 2,
+      "swap_mib": 648.38,
+      "compressed_mib": 2422.3
+    },
+    {
+      "t": 14.1,
+      "pressure": 2,
+      "swap_mib": 648.38,
+      "compressed_mib": 2420.8
+    },
+    {
+      "t": 14.1,
+      "pressure": 2,
+      "swap_mib": 648.38,
+      "compressed_mib": 2418.9
+    }
+  ],
+  "safety_stop": true
+}

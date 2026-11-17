@@ -94,3 +94,27 @@ management and cited questions. Provider-dependent actions remain disabled by de
 For a complete zero-provider-cost workflow, explicitly select the
 [deterministic local RAG demo](docs/demo-deterministic.md). It uses real ingestion,
 retrieval and citations with clearly labeled simulated, extractive answers.
+
+## Local LLM Evaluation & Engineering Trade-offs
+
+Native Ollama was evaluated on an Apple M2 with 8 GiB memory to reduce external
+inference dependencies. Qwen3 1.7B and 0.6B Q4_K_M were tested with Nomic Embed Text
+v1.5 using synthetic inputs, 2048-token context and bounded generation.
+
+| Common evaluation subset | Qwen3 1.7B | Qwen3 0.6B |
+| --- | ---: | ---: |
+| Median generation throughput | 62.97 tokens/s | 126.275 tokens/s |
+| Reported loaded model memory | 1.53 GiB | 753 MiB |
+| Valid cited answers within two attempts | 3/4 | 0/4 |
+
+The smaller model improved speed and memory behavior, but missing citations and
+empty-context hallucinations failed the reliability criteria. Nomic also produced
+identical vectors for two entity-specific questions; a lowercase experiment
+separated them, without proving the exact tokenizer root cause. Better vector
+retrieval did not improve hybrid Top-1 on the small expanded dataset.
+
+**Decision: no Ollama integration in this release.** The OpenAI backend and clearly
+labeled deterministic, API-free demo remain unchanged. See the
+[benchmark and architectural decision](docs/local-llm-benchmark.md) for evidence,
+evaluation subsets and limitations. These standalone measurements do not validate
+concurrent Docker/Ollama deployment.

@@ -1,0 +1,36 @@
+{
+  "artifacts": [
+    {
+      "file": "qwen17-exploratory.json",
+      "source_group": "atlas-ollama-bench",
+      "source_basename": "results.json",
+      "source_sha256": "10d45112be7baa2d3fb2da0e86ed5027161bdd35dc1c3abad0c21f2850aa4256",
+      "sanitization": "Removed expires_at residency timestamps recursively; no measurements or responses changed.",
+      "artifact_sha256": "1e8e6f81834b3294bab41bb2147a50541046ae65ddf949e77b642002856554a5"
+    },
+    {
+      "file": "qwen17-production-prompt.json",
+      "source_group": "atlas-ollama-bench",
+      "source_basename": "checks.json",
+      "source_sha256": "9f8466b9e84904d8291b8acf029504d71db179e33a0d0f6112af2a210b021545",
+      "sanitization": "Removed expires_at residency timestamps recursively; no measurements or responses changed.",
+      "artifact_sha256": "8bc993a63f9ce559b14bcc34061e377723867535ba0c6be4a38866e11e0de756"
+    },
+    {
+      "file": "qwen06-evaluation.json",
+      "source_group": "atlas-lightweight-bench",
+      "source_basename": "results.json",
+      "source_sha256": "1b4bd499e186b6022a6123798382714582b34c5176e19c4e2d086b50f68963c7",
+      "sanitization": "Removed expires_at residency timestamps recursively; no measurements or responses changed.",
+      "artifact_sha256": "e1668ff5f77f2f97b91ef5078dc3af8874abb60ab5157f393a86f079b86a662c"
+    },
+    {
+      "file": "nomic-casing.json",
+      "source_group": "atlas-lightweight-bench",
+      "source_basename": "casing.json",
+      "source_sha256": "42c1df3d38d3366b5c88c2ba4fbc7c465f4e7ba3261dd8deb5d92c16af604c2f",
+      "sanitization": "Removed expires_at residency timestamps recursively; no measurements or responses changed.",
+      "artifact_sha256": "eb57241dbca7122033a042b5e5ffe47740c7226860d0c67bc8c3d02bb76dda46"
+    }
+  ]
+}

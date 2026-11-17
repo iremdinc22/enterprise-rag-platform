@@ -1,6 +1,6 @@
 # Isolated local demo infrastructure
 
-[Overview](../README.md) · [Deployment](deployment.md)
+[Documentation index](README.md) · [Overview](../README.md) · [Deployment](deployment.md)
 
 The isolated demo provides server-side sessions and a complete document workflow.
 Demo upload and job tracking contracts are in [the upload guide](demo-uploads.md).
@@ -92,70 +92,104 @@ Never print resolved Compose configuration with real credentials.
 
 ## First startup
 
-First create a **new** private `.env.demo` if absent; retain the existing runtime
-verification file when present. Do not overwrite `.env`, `.env.compose`
-or a previous `.env.demo`. [.env.demo.example](../.env.demo.example) describes the
-fields. Generate the secret without printing it, with exclusive creation:
+### Free deterministic localhost demo
 
-```bash
-python - <<'PY'
+Requirements: Git, Docker Engine/Desktop with Compose v2, Python 3.13 for the
+credential helper, and sufficient available memory/disk. Node is built inside the
+frontend image. The final Linux CI run passed; resource pressure can still prevent
+comfortable operation on a busy 8 GB laptop. See [demo configuration](demo.md).
+
+Use these commands for a **fresh installation**. Existing private env files,
+containers, collections and volumes must not be overwritten or reset. Check port
+18030 and the `enterprise-rag-demo` project before startup. Choose a different
+port in a new configuration if needed.
+
+```sh
+git clone https://github.com/iremdinc22/enterprise-rag-platform.git
+cd enterprise-rag-platform
+
+# Exclusive creation: refuses to overwrite an existing file. No secret is printed.
+python3 - <<'PY'
 import os, secrets
 fd = os.open('.env.demo', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
 with os.fdopen(fd, 'w') as stream:
     stream.write('DEMO_JWT_SECRET=' + secrets.token_urlsafe(48) + '\n')
     stream.write('DEMO_PORT=18030\nDEMO_PROVIDER_MODE=disabled\n')
 PY
+
+# Choose your own passwords; interactive input is not echoed.
+python3 -m src.demo.passwords --output .env.demo.auth
+
+demo() {
+  DEMO_PROVIDER_MODE=deterministic COMPOSE_PARALLEL_LIMIT=1 docker compose \
+    --env-file .env.demo --env-file .env.demo.auth -f compose.demo.yaml "$@"
+}
+
+demo config --quiet
+demo build api
+demo build frontend
+demo up -d --no-build --wait qdrant redis
+demo run --rm --no-deps api python -m src.demo.run init-collection
+demo up -d --no-build --wait
+demo ps
 ```
 
-`.env.demo` is ignored; the tracked example contains no secret. Choose another
-loopback port if 18030 is occupied. Do not add host service URLs, provider keys,
-existing secrets, or volume names to this file.
+Open **http://127.0.0.1:18030**. Sign in as `acme-demo` or `globex-demo` using the
+password you chose for that account. There are no published default passwords.
+The private files are ignored by Git; never share or commit them.
 
-Set up a **new** ignored password hash file interactively before the next approved
-startup. This helper requires a TTY, prompts without echo, uses scrypt with a random
-16-byte salt and N=131072/r=8/p=1, and creates the output exclusively at mode 0600.
-It never prints passwords/hashes. It does not modify an existing file:
+Stop only this project while preserving its data:
 
-```bash
-python -m src.demo.passwords --output .env.demo.auth
+```sh
+demo stop
 ```
 
-Do not pass passwords on command lines. The generated dotenv values are
-single-quoted to preserve the scrypt `$` separators. Neither the hash file nor the
-JWT secret file belongs in Git. Compose injects hashes into API only, not frontend
-or worker. Missing/plaintext/unsupported hashes prevent the demo API from serving.
+Do not use volume-deletion flags or global cleanup commands. For a pre-existing
+installation, reuse its private configuration and follow the [demo guide](demo.md)
+instead of rerunning credential generation or copying another corpus.
 
-After explicit startup approval:
+### Provider configurations
 
-```bash
-docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.yaml config --quiet
-docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.yaml build
-docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.yaml up -d qdrant redis
-# Explicit creation of ONLY the demo collection; no documents or embeddings.
-docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.yaml run --rm --no-deps api \
-  python -m src.demo.run init-collection
-docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.yaml up -d
-docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.yaml ps
-```
+| Configuration | Behavior |
+| --- | --- |
+| Demo `disabled` — default | Login and existing document access; query/upload return safe 503 |
+| Demo `deterministic` — explicit opt-in | Local hash embeddings, lexical retrieval/reranking and source excerpts; no paid inference |
+| Original OpenAI backend | Separate normal API/worker configuration with provider credentials and compatible indexed data |
 
-Browse `http://127.0.0.1:18030` for the React dashboard and same-origin API proxy.
-The proxy does not expose Swagger `/docs`. See the [README quickstart](../README.md#getting-started)
-for the deterministic workflow.
-API health uses `/health`; `/ready` remains a separate collection-existence check
-and returns 503 until explicit initialization. Neither proves provider availability
-or end-to-end ingestion readiness. Worker health uses targeted Celery ping.
-There is no automatic collection creation, seeding, corpus copy or ingestion.
+The demo rejects `openai` and `ollama` modes. For the original backend, use the
+[deployment guide](deployment.md) and private `OPENAI_API_KEY`/`JWT_SECRET_KEY`
+configuration. Its local API commonly uses port 8001; no demo session/upload route
+is added to that entrypoint. Provider queries/ingestion may incur charges and must
+be invoked intentionally. Never reuse incompatible embeddings in a collection.
 
-Normal shutdown (retains data):
+The Python helper requires a TTY and never echoes passwords. It stores fixed-format
+scrypt hashes with a random 16-byte salt and N=131072/r=8/p=1 in a new mode-0600
+file. Single-quoted dotenv values preserve `$` separators. No passwords belong on
+command lines; missing/plaintext/unsupported hashes prevent startup. The API alone
+receives account hashes. Never overwrite existing private configuration or use
+volume-deletion/global-prune commands.
 
-```bash
-docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.yaml down
-```
+There is no automatic collection seeding, corpus copy or ingestion. `/ready` checks
+collection existence rather than provider availability. The dashboard proxy does
+not expose Swagger `/docs`. Existing non-demo services and `enterprise_documents`
+are outside this project.
 
-Do not append volume-deletion flags or run global cleanup/prune commands. Reset
-and persistent-data deletion require separate approval. Nothing here targets
-`stupefied_dewdney`, `enterprise-rag-redis`, `enterprise-rag-docker`, their volumes,
-or collection `enterprise_documents`.
+## Demo walkthrough
+
+1. Log in to one tenant and upload a small, text-based PDF using the chooser or
+   drag-and-drop. Keep its wording available for a question.
+2. Wait for the Celery job to reach **Ready**. Failed or uncertain submissions show
+   safe feedback; do not repeatedly resubmit an uncertain operation.
+3. Ask a question using words present in a source sentence. Read the simulated
+   excerpt and click its source card to download the authorized PDF and verify
+   the page. Paraphrases and synonyms may produce no evidence.
+4. Switch accounts to demonstrate separate libraries and evidence. The frontend
+   clears session-owned documents, queries, polling and download state.
+
+For a predictable first test, create a PDF sentence such as “Orion allowance is
+731 USD.” and ask “What is the Orion allowance?” The example is user-created
+synthetic content, not a bundled corpus or a hardcoded answer. Public query
+responses do not expose cache HIT/MISS, token usage or cost metrics.
 
 ## Demo session API
 

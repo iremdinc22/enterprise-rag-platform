@@ -1,6 +1,6 @@
 # Atlas demo dashboard
 
-[Demo setup](demo.md) · [Upload and source access](demo-uploads.md)
+[Documentation index](README.md) · [Demo setup](demo.md) · [Upload and source access](demo-uploads.md)
 
 The frontend is React + TypeScript + Vite, with native fetch, Lucide icons,
 Vitest and Testing Library. No frontend secrets or provider integrations exist.
@@ -155,3 +155,44 @@ existing credential files were not overwritten. Future startup still requires
 operator-configured passwords as described above. Real ingestion, generated
 answers, citation retrieval and cache behavior remain untested in this disabled
 runtime; they require the separately approved deterministic-provider phase.
+
+## Verified application gallery
+
+Actual application captures from [final validation](final-validation.md), using
+synthetic documents. Images are unchanged; simulation labels remain visible.
+See [image provenance](images/README.md) for original names and dimensions.
+
+### Login
+
+![Atlas login](images/atlas-login.png)
+
+### Document workspace
+
+![Atlas workspace captured during CI validation](images/atlas-workspace.png)
+
+### Document library
+
+![Atlas document library](images/atlas-document-library.png)
+
+### Answer and citations
+
+![Validated deterministic answer with page-2 citation](images/atlas-answer-citations.png)
+
+### Mobile documents and answer
+
+The full-page mobile captures are shown separately to preserve their natural
+proportions without an uneven side-by-side layout.
+
+<details>
+<summary>Mobile document workspace</summary>
+
+<img src="images/atlas-mobile-documents.png" width="390" alt="Atlas mobile document workspace">
+
+</details>
+
+<details>
+<summary>Mobile answer with evidence</summary>
+
+<img src="images/atlas-mobile-answer.png" width="390" alt="Atlas mobile answer with citation">
+
+</details>

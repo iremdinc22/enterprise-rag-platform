@@ -1,6 +1,6 @@
 # Query API
 
-[Overview](../README.md) · [Architecture](architecture.md) · [Deployment](deployment.md) · [Testing](testing.md)
+[Documentation index](README.md) · [Overview](../README.md) · [Architecture](architecture.md) · [Deployment](deployment.md) · [Testing](testing.md)
 
 The FastAPI adapter exposes the existing async RAG pipeline. Local development
 uses `http://127.0.0.1:8001`; the separate Compose project uses port `18001` in the
@@ -209,3 +209,24 @@ schema validation or the smoke test.
 [Application/lifecycle/errors](../src/api/main.py),
 [authentication dependency](../src/api/dependencies.py),
 [schemas](../src/api/schemas.py), and [RAG orchestration](../src/rag/pipeline.py).
+
+## Demo route overview
+
+All query/document identity comes from JWT claims, never a browser tenant field.
+The demo frontend proxies `/api/v1/`, `/health` and `/ready` to the private API.
+Swagger is accessed directly through the normal API configuration, not this proxy.
+
+| Route | Scope and purpose |
+| --- | --- |
+| `POST /api/v1/demo/session` | Demo only; fixed account/password login, short-lived JWT |
+| `POST /api/v1/documents` | Demo only; authenticated admin, one PDF and UUID `Idempotency-Key` |
+| `GET /api/v1/ingestion-jobs/{job_id}` | Demo only; authenticated owner, sanitized job status |
+| `GET /api/v1/documents?limit=20&offset=0` | Demo only; tenant library, limit 1–50 |
+| `GET /api/v1/documents/{document_id}/file` | Demo only; authorized PDF attachment |
+| `POST /api/v1/query` | Normal backend and demo; answer plus structured citations |
+| `GET /health` | Process liveness; demo adds provider-mode metadata |
+| `GET /ready` | Configured Qdrant collection availability, not provider readiness |
+| `GET /docs` | FastAPI Swagger UI on the normal API's selected port |
+
+[Query schemas](#query-request) · [HTTP errors](#error-contract) · [Session contract](demo.md#demo-session-api) ·
+[Upload/job/document contracts](demo-uploads.md)

@@ -1,6 +1,6 @@
 # System architecture
 
-[Overview](../README.md) · [API](api.md) · [Deployment](deployment.md) · [Testing](testing.md)
+[Documentation index](README.md) · [Overview](../README.md) · [API](api.md) · [Deployment](deployment.md) · [Testing](testing.md)
 
 Enterprise RAG indexes PDF documents and answers questions using evidence scoped
 to a verified tenant. The same question can return ACME's 500 USD allowance or
@@ -24,15 +24,72 @@ The application is Python with FastAPI/Uvicorn, PyJWT, Pydantic v2, OpenAI,
 Sentence Transformers, rank-bm25, NumPy, pypdf, Redis, Celery, and OpenTelemetry.
 Service addresses/model names are process configuration; see [deployment settings](deployment.md#configuration).
 
-## Document indexing
+## Demo system topology
+
+The demo adds React/nginx, server-side sessions, uploads and document access to the
+shared core. The original OpenAI entrypoint exposes the normal query API.
+Provider boundaries are selected at process startup, not as an automatic fallback
+or a browser-controlled switch.
 
 ```mermaid
-flowchart LR
-    PDF[PDF] --> Pages[Page-aware extraction]
-    Pages --> Chunks[Overlapping word chunks]
-    Chunks --> Embeddings[Batch embeddings]
-    Embeddings --> Store[Tenant document replacement in Qdrant]
-    Store --> Cache[Invalidate tenant answers]
+flowchart TB
+    UI["React + TypeScript dashboard"] --> Proxy["Nginx: same-origin proxy"]
+    Proxy --> API["FastAPI"]
+    API --> Session["Demo session: fixed account mapping"]
+    Session --> JWT["JWT signing and verification"]
+    API --> JWT
+    JWT --> Scope["Verified tenant and role"]
+    Scope --> RAG["Shared RAG query pipeline"]
+    Scope --> Docs["Demo upload, job and document routes"]
+    Docs --> Files["Immutable uploaded PDFs"]
+    Docs --> Redis["Redis: broker, metadata and caches"]
+    Redis --> Worker["Celery ingestion worker"]
+    Worker --> Redis
+    Files --> Worker
+    Worker --> Qdrant["Qdrant: tenant-owned chunks"]
+    Worker --> Providers["Embedding / generation boundaries"]
+    RAG --> Redis
+    RAG --> Qdrant
+    RAG --> Providers
+    Providers --> OpenAI["Original backend: OpenAI clients"]
+    Providers --> Local["Demo: hash embeddings and source excerpts"]
+    classDef core fill:#17352c,stroke:#17352c,color:#ffffff;
+    classDef surface fill:#f6f7f2,stroke:#b6c7a3,color:#243b30;
+    class API,RAG,Worker core;
+    class UI,Proxy,Session,JWT,Scope,Docs,Files,Redis,Qdrant,Providers,OpenAI,Local surface;
+```
+
+The standalone demo Compose project publishes only the frontend on
+`127.0.0.1:18030`. API, worker, Redis and Qdrant use an internal network. Upload,
+vector, Redis and model-cache volumes are project-scoped. Redis separates broker
+DB 0, job metadata DB 1 and cache DB 2.
+
+## Document indexing
+
+The full upload flow below is demo-specific; indexing uses the shared ingestion
+core. JWT/admin authorization and idempotency apply before Celery work.
+
+```mermaid
+flowchart TD
+    Upload["PDF upload: JWT, admin role and provider gate"] --> Body["Bounded body reception and multipart validation"]
+    Body --> Replay{"Existing tenant/key and digest?"}
+    Replay -->|Same bytes| Existing["Return original submission"]
+    Replay -->|Different bytes| Conflict["409 conflict"]
+    Replay -->|New| Precheck["Capacity and quota precheck"]
+    Precheck --> PDF["Bounded PDF extraction: pages, chunks and text"]
+    PDF --> File["Generate IDs and store immutable source PDF"]
+    File --> Admit["Redis admission: reserve job and metadata"]
+    Admit --> Publish["Publish Celery task"]
+    Publish --> Worker["Claim job; verify source and make private copy"]
+    Worker --> Chunks["Page extraction and overlapping word chunks"]
+    Chunks --> Embeddings["Batch embedding generation"]
+    Embeddings --> Prepare["Prepare points: counts, dimensions, finite values and ownership"]
+    Prepare --> Store["Tenant/document-scoped Qdrant delete then upsert"]
+    Store --> Invalidate["Best-effort tenant answer-cache invalidation"]
+    Invalidate --> Complete["Record completed status"]
+    Complete --> Ready["Dashboard polling shows Ready"]
+    Worker -.->|Selected transient failures| Retry["Bounded Celery retry / failed status"]
+    Publish -.->|Ambiguous outcome| Unknown["submission_unknown: track, do not republish automatically"]
 ```
 
 Defaults are **40 words per chunk with 8-word overlap**, not token counts. Pages
@@ -55,7 +112,8 @@ reads are not locks. Cache invalidation remains best effort, and an in-flight qu
 can repopulate stale results after invalidation. There is no rollback or versioned
 publication. PDF extraction has no OCR.
 
-Ingestion is a trusted internal interface, not an HTTP upload endpoint. The
+The shared ingestion core is a trusted internal interface; the demo wraps it with
+an authenticated HTTP upload boundary. The
 [admin authorization helper](../src/auth/authorization.py) exists, but ingestion
 does not automatically call it. Callers must authorize input and tenant identity.
 A Celery task receives a PDF path visible inside the worker, document ID, and
@@ -66,22 +124,35 @@ immediately. Background ingestion can incur embedding charges.
 
 ## Question answering
 
+Query embeddings have a model/text cache; batch MMR embeddings bypass it. The
+OpenAI path uses CrossEncoder reranking and at most two citation-validation
+attempts with 500 output tokens each. Demo adapters use hash embeddings, lexical
+reranking and one bounded source-excerpt attempt, abstaining without matching
+evidence. See [deterministic behavior](demo-deterministic.md).
+
 ```mermaid
 flowchart TD
-    HTTP[Query + verified UserContext] --> Cache{Tenant answer cache}
-    Cache -->|HIT| Return[Answer + cited metadata]
-    Cache -->|MISS or bypass| Hybrid[Tenant BM25 + vector search]
-    Hybrid --> RRF[Reciprocal Rank Fusion]
-    RRF --> Dedup[Source-preserving deduplication]
-    Dedup --> Rank[CrossEncoder reranking]
-    Rank --> MMR[Candidate embeddings + MMR]
-    MMR --> Sources[Numbered sources + provenance]
-    Sources --> Generate[Structured answer generation]
-    Generate --> Validate{Citation consistency}
-    Validate -->|Valid| Return
-    Validate -->|First invalid attempt| Retry[Feedback-driven regeneration]
-    Retry --> Validate
-    Validate -->|Second invalid attempt| Error[Safe API error]
+    Request["Query: body, JWT, admission and deadline checks"] --> Enabled{"Answer cache enabled?"}
+    Enabled -->|Yes| Lookup{"Tenant answer cache hit?"}
+    Lookup -->|Yes| Cached["Validate cached citation references"]
+    Cached --> Response["API schema validation and JSON response"]
+    Enabled -->|No| BM25["BM25 over tenant chunks"]
+    Lookup -->|No| BM25
+    BM25 --> Embed["Query embedding: model/text cache"]
+    Embed --> Dense["Tenant-filtered Qdrant vector search"]
+    Dense --> Fusion["Reciprocal Rank Fusion"]
+    Fusion --> Dedup["Exact deduplication"]
+    Dedup --> Rank["Reranking"]
+    Rank --> MMR["Candidate embeddings and MMR selection"]
+    MMR --> Context["Trusted citation groups and formatted context"]
+    Context --> Generate["Answer generation: bounded provider policy"]
+    Generate --> Validate["Validate answer, inline IDs and declared IDs"]
+    Validate --> Final["Build and validate returned source groups"]
+    Final --> Store["Write tenant answer cache if enabled"]
+    Store --> Response
+    Cached -.->|Invalid| Error["Sanitized failure"]
+    Validate -.->|Invalid after allowed attempts| Error
+    Final -.->|Invalid| Error
 ```
 
 [`run_rag()`](../src/rag/pipeline.py) is async and coordinates the existing modules.
@@ -165,3 +236,85 @@ Non-atomic replacement, best-effort invalidation, empty-corpus handling, and the
 small evaluation datasets remain limits. See [test scope and results](testing.md)
 and [deployment boundaries](deployment.md#verified-results-and-limitations) before drawing
 production reliability, throughput, or security conclusions.
+
+## Security and resource controls
+
+Tenant IDs are taken exclusively from verified JWT claims. Retrieval filters,
+Qdrant ownership fields, answer cache keys and demo metadata retain tenant scope.
+Foreign document/job requests return the same 404 responses as missing resources.
+Identifiers use a shared strict policy without silently changing their values.
+
+Demo sessions map `acme-demo` and `globex-demo` to their tenant/admin roles on the
+server. Passwords are verified against scrypt hashes; JWTs expire after 15 minutes
+and remain in frontend memory. Signing/provider secrets never enter the frontend
+bundle. Upload storage uses generated document directories, validated filenames
+and no-follow file access. Responses and logs avoid sensitive request content.
+
+| Default protection | Limit |
+| --- | --- |
+| Query body / receive time | 32,768 bytes / 5 seconds |
+| Query text / retrieval / final context | 2,000 characters / at most 10 / at most 3 |
+| Active queries / total query deadline | 2 per process, no queue / 60 seconds |
+| Accepted query rate | 6 per tenant and 12 globally per rolling minute |
+| Query quota | 50 accepted queries per process lifetime, including cache hits/failures |
+| PDF / pages / chunks / extracted text | 5 MiB / 10 / 200 / 100,000 characters |
+| Upload receive / preparation / pending jobs | 15 seconds / 1 per API process / 2 globally |
+| Accepted demo uploads | 10 per tenant, 20 globally; counters persist in demo Redis |
+
+These controls bound resource use rather than provider billing. See
+[API limits and errors](api.md) and [deployment limitations](#known-limitations).
+
+## Technology stack
+
+| Layer | Technologies |
+| --- | --- |
+| Dashboard | React, TypeScript, Vite, Lucide, native fetch |
+| API and authentication | Python 3.13, FastAPI, Pydantic v2, PyJWT, scrypt |
+| Retrieval and generation | Qdrant, BM25, RRF, Sentence Transformers CrossEncoder, MMR, OpenAI |
+| Background processing | Celery, Redis, pypdf |
+| Observability | OpenTelemetry, request-local token and cost tracking |
+| Deployment and testing | Docker Compose, nginx, unittest, Vitest, Testing Library, Playwright, GitHub Actions |
+
+The deterministic adapters preserve pipeline/citation contracts without loading
+CrossEncoder weights, downloading inference models or contacting OpenAI.
+
+## Engineering decisions and trade-offs
+
+- **Tenant identity at trust boundaries:** verified claims scope retrieval and
+  cache access; strict identifiers and point ownership checks defend stored data.
+- **Hybrid search:** lexical matches and dense similarity provide complementary
+  rankings. Reranking/MMR add selection stages, but measured gains must be evaluated
+  rather than assumed.
+- **Trusted citation metadata:** document text cannot authorize fabricated source
+  IDs. Cached and final answers must preserve real returned citation groups.
+- **Async ingestion:** Celery keeps indexing outside query requests; bounded
+  preparation rejects invalid replacement data before deletion. Publication and
+  replacement are still non-atomic.
+- **Isolated demo:** real service integration is retained while local adapters
+  remove inference costs and model downloads. Test data never needs the local corpus.
+- **Bounded operation:** upload/query limits and explicit failure states favor
+  reviewable behavior over automatic submission loops or hidden fallbacks.
+
+[Architecture and technical limits](architecture.md) ·
+[Local LLM decision narrative](local-llm-decision-summary.md)
+
+## Known limitations
+
+- Deterministic answers use lexical matching and source excerpts, not reasoning,
+  semantic generation or a real LLM. Hash collisions and missed paraphrases are possible.
+- BM25 rebuilds its index from at most 100 tenant chunks; batch MMR embeddings
+  bypass the query embedding cache. Cache invalidation is best effort.
+- Document replacement is not atomic; failures after deletion and concurrent
+  ingestion can leave partial results. There is no rollback/versioned publishing.
+- Query quotas are process-local and reset on restart. Upload counters persist;
+  neither mechanism is a distributed tenant budget or a provider spending cap.
+- Citation consistency does not establish semantic faithfulness or prevent every
+  prompt-injection attempt. The original backend retains documented empty-corpus
+  and client-lifecycle limitations.
+- Final browser evidence covers Chromium/Linux, not every browser/platform. Local
+  M2 validation was resource-limited; CI success does not remove laptop memory constraints.
+- Production hosting needs separate TLS, backup/recovery, secret rotation, JWT
+  issuer/audience policy, revocation, tenant provisioning, distributed controls
+  and operational monitoring design.
+
+**Release scope: localhost portfolio demo. No production-readiness claim.**

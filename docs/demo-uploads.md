@@ -3,18 +3,19 @@
 [Demo setup](demo.md) · [Normal API](api.md) · [Testing](testing.md)
 
 These routes exist only in the activated demo application. The normal FastAPI
-entrypoint is unchanged. Document listing, source PDF retrieval and the React UI
-are not implemented here.
+entrypoint is unchanged. Document listing and source PDF retrieval are described
+below; the [React dashboard](demo-dashboard.md) uses these same contracts.
 
 ## Provider safety
 
-The only supported runtime mode remains `disabled`. An authenticated admin upload
-with a valid idempotency key receives sanitized 503 **before body reception,
-PDF parsing, Redis access, file creation or job acceptance**. No provider-enabled
-environment switch or fake production provider is added. Successful admission and
-worker execution are exercised only with explicit fake dependencies in tests.
-A separately approved simulated provider must be implemented before interactive
-uploads can succeed. Never enable a real provider as a troubleshooting step.
+The default mode is `disabled`. An authenticated admin upload with a valid
+idempotency key receives sanitized 503 **before body reception, PDF parsing,
+Redis access, file creation or job acceptance**. Opt-in `deterministic` mode
+supports actual uploads and Celery ingestion using local adapters without model
+downloads or paid inference. OpenAI/Ollama are not demo provider switches.
+See [deterministic setup](demo-deterministic.md) and the
+[final integration evidence](final-validation.md). Never enable a real provider
+as a troubleshooting step.
 
 ## POST /api/v1/documents
 

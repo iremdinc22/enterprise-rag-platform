@@ -74,7 +74,7 @@ non-demo services, or expose backend ports.
 Create a **new** ignored password-hash file with passwords you choose:
 
 ```sh
-cd /Users/iremdinc/enterprise-rag
+# Run from the repository root.
 .venv/bin/python -m src.demo.passwords --output .env.demo.manual.auth
 ```
 
@@ -215,3 +215,9 @@ passwords. Six existing non-demo RAG containers and the four original private en
 files were unchanged during the resumed verification. Some unrelated containers
 changed metadata independently; none was targeted by task commands. TASK-030.9
 was not started, and no commit/push was performed.
+
+## Final release validation
+
+The checkpoints above record earlier development stages. See
+[final validation](final-validation.md) for the subsequent clean Linux installation,
+HTTP controls and authenticated browser evidence.

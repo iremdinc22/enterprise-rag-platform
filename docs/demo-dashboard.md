@@ -82,9 +82,11 @@ API liveness, not model/provider readiness.
   data appearing after account switching. Blob URLs are revoked on sign-out and
   shortly after download. Cancellation cannot undo an already accepted server
   operation or provider billing.
-- Provider mode remains disabled. A recognized disabled-provider 503 explains the
-  limitation and disables repeated provider actions. No fake answer, ingestion
-  success, cache HIT/MISS, token count or cost metrics are displayed. API liveness
+- Disabled is the default; opt-in deterministic mode is labeled
+  “Simulated AI — deterministic local demo”. A recognized disabled-provider 503
+  explains the limitation and disables repeated provider actions. No fabricated
+  ingestion success, cache HIT/MISS, token count or cost metrics are displayed.
+  Deterministic answers use retrieved evidence. API liveness
   is a one-time `/health` check; it does not claim every dependency is healthy.
 
 ## Verification and limits
@@ -95,11 +97,11 @@ feedback, expiry and late-response isolation. Backend suites remain authoritativ
 for JWT, ownership and quotas. Production build/typecheck, static Compose parsing,
 secret/artifact checks and an npm advisory audit are separate checks.
 
-Login layout was visually checked at mobile and desktop widths. The authenticated
-dashboard interactions are covered by mocked component tests and the disabled-provider
-Docker/browser checkpoint below. Provider-dependent success paths remain deferred. No existing containers were started and no
-paid calls or data changes were needed. Demo provider activation is out of scope.
-This is a localhost portfolio demo, not a public deployment or a hard billing cap.
+Final Linux/Chromium validation covered authenticated upload, ingestion, queries,
+citations, downloads and tenant switching at four responsive viewport sizes.
+See [final validation](final-validation.md) for exact counts and limitations.
+The historical checkpoint below used disabled mode only. This is a localhost
+portfolio demo, not a public deployment or a hard billing cap.
 
 ## Docker/browser checkpoint — 2026-11-17 (TASK-030.8A)
 

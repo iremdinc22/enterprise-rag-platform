@@ -2,14 +2,14 @@
 
 [Overview](../README.md) · [Deployment](deployment.md)
 
-TASK-030.3 supplies isolated infrastructure; TASK-030.4 adds demo-only sessions.
+The isolated demo provides server-side sessions and a complete document workflow.
 Demo upload and job tracking contracts are in [the upload guide](demo-uploads.md).
 The React + TypeScript dashboard provides login, tenant-owned document listing,
 authenticated PDF downloads, upload/job tracking and cited queries. See
 [dashboard development](demo-dashboard.md). The opt-in
 [deterministic provider](demo-deterministic.md) runs locally; disabled remains the default.
-**Do not start this stack until explicitly approved.** Commands below are for that
-later approved operation; configuration validation/tests do not start services.
+Start only the isolated project after checking its configuration and host port.
+Configuration validation does not start services.
 
 ## Isolation and configuration
 
@@ -36,7 +36,7 @@ Backend/worker entrypoints validate settings **before importing existing clients
 | Setting | Required demo value |
 | --- | --- |
 | `DEMO_ENABLED` | `1` |
-| `DEMO_PROVIDER_MODE` | `disabled` (only supported mode in this task) |
+| `DEMO_PROVIDER_MODE` | `disabled` (default) or explicitly selected `deterministic` |
 | `DEMO_JWT_SECRET` | New demo-only secret, 32–256 printable non-space ASCII characters |
 | `DEMO_ACME_PASSWORD_HASH`, `DEMO_GLOBEX_PASSWORD_HASH` | Required by API only; fixed-format scrypt hashes, never plaintext |
 | `PYTHON_DOTENV_DISABLED` | `1` |
@@ -65,11 +65,12 @@ provider/JWT credentials and already imported backend clients/config are rejecte
 Freshness of a user-supplied secret cannot be proven; never reuse existing secrets.
 The frontend receives no secret or upload/model volume.
 
-Authenticated queries return sanitized 503 before query admission/retrieval/cache;
+In disabled mode, authenticated queries return sanitized 503 before query admission/retrieval/cache;
 invalid tokens still return 401. Demo startup skips eager RAG/reranker loading.
 Process-local disabled SDK clients reject embedding/generation access before any
-provider transport, including worker batch embeddings. `deterministic` and `openai`
-are rejected until separately implemented and approved. Production entrypoints,
+provider transport, including worker batch embeddings. Opt-in `deterministic` mode
+uses local adapters without external inference or model downloads; `openai` and
+`ollama` are rejected. Production entrypoints,
 provider clients, and existing ingestion behavior are unchanged.
 
 ## Static validation (safe without startup)
@@ -89,7 +90,7 @@ clients or blocked sockets. If Docker CLI is absent, Compose-specific tests skip
 configuration parsing is not proof that containers will start successfully.
 Never print resolved Compose configuration with real credentials.
 
-## Later approved first startup
+## First startup
 
 First create a **new** private `.env.demo` if absent; retain the existing runtime
 verification file when present. Do not overwrite `.env`, `.env.compose`
@@ -137,7 +138,9 @@ docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.ya
 docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.yaml ps
 ```
 
-Browse `http://127.0.0.1:18030` for the placeholder only. It has no API proxy yet.
+Browse `http://127.0.0.1:18030` for the React dashboard and same-origin API proxy.
+The proxy does not expose Swagger `/docs`. See the [README quickstart](../README.md#getting-started)
+for the deterministic workflow.
 API health uses `/health`; `/ready` remains a separate collection-existence check
 and returns 503 until explicit initialization. Neither proves provider availability
 or end-to-end ingestion readiness. Worker health uses targeted Celery ping.
@@ -175,7 +178,7 @@ provider or signup.
 
 Success 200 contains `access_token`, `token_type: "bearer"`, `expires_in: 900`, and
 `user: {user_id, tenant_id, role}`. Existing JWT helpers sign and verify HS256 with
-15-minute expiration. Keep the token in frontend memory in the later UI; never
+15-minute expiration. The dashboard keeps the token in memory; never
 place it in URLs, logs, browser bundles or localStorage. All session-path responses,
 including errors and redirects, carry `Cache-Control: no-store`.
 
@@ -198,7 +201,7 @@ execution helper in a thread: cancellation retains the slot until work finishes.
 Health and query quotas are independent. The five-second timeout is for receiving
 the body, not a hard cutoff for password hashing or response delivery.
 
-## Verified scope and remaining work
+## Historical infrastructure and authentication checkpoints
 
 The infrastructure runtime passed five-service health checks, localhost placeholder
 access, demo-only DNS/network/volume checks, empty demo collection readiness,

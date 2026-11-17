@@ -486,8 +486,12 @@ available allowance, but storage is not an unlimited guarantee. See official
 [billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
 and [Playwright CI guidance](https://playwright.dev/docs/ci).
 
-This infrastructure has not yet been executed on GitHub at implementation time.
-Static checks and discovery do not prove image build, runtime integration or final
-release readiness. A passing run validates a synthetic localhost deterministic
-demo; it does not establish real LLM quality, production security/readiness, or
-compatibility with the original macOS deployment.
+The first [Atlas Demo E2E run](https://github.com/iremdinc22/enterprise-rag-platform/actions/runs/44090728527)
+passed in **4 minutes 28 seconds** at commit
+`626575e1fde6e6a0017995cfd5c80e798566a1bf`. It verified a fresh build,
+18 controlled Docker scenarios, 12 HTTP control groups, nine authorization/session
+controls and two Playwright tests against the deterministic demo.
+See the permanent [final validation summary](final-validation.md) for consolidated
+regression counts, screenshot provenance and remaining limitations. A passing run
+validates a synthetic localhost deterministic demo; it does not establish real
+LLM quality, production readiness or complete macOS runtime compatibility.

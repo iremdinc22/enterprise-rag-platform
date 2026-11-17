@@ -329,3 +329,11 @@ invalidation remain as documented in [Architecture](architecture.md). Readiness
 does not establish provider health or corpus answerability. No new live execution
 is part of documentation finalization; regression results should always state
 whether they are network-free, isolated Docker integration, or paid live evidence.
+
+## Deterministic localhost demo
+
+The [demo verification guide](demo-deterministic.md#automated-verification) covers
+network-free provider contracts and the explicitly invoked `tests.demo_e2e` HTTP
+runner against the isolated demo stack. Its synthetic uploads exercise the actual
+Celery/Qdrant/retrieval/citation path without external inference. It does not
+replace the existing 18 isolated infrastructure E2E scenarios or real LLM evaluation.

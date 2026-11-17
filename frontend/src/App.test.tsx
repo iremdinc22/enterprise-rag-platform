@@ -45,12 +45,14 @@ beforeEach(() => {
   );
   vi.stubGlobal("fetch", fetchMock);
 });
-async function login(tenant = "acme") {
+async function login(tenant = "acme", mode?: string) {
   fetchMock.mockImplementation(async (path: string) =>
     path.includes("/demo/session")
       ? json(session(tenant))
       : path === "/health"
-        ? new Response("ok")
+        ? new Response("ok", {
+            headers: mode ? { "X-Demo-Provider-Mode": mode } : {},
+          })
         : json({ documents: [], total: 0, limit: 20, offset: 0 }),
   );
   fireEvent.change(screen.getByLabelText("Password"), {
@@ -300,4 +302,14 @@ it('reuses the upload idempotency key after an uncertain publish',async()=>{
  await waitFor(()=>expect(fetchMock.mock.calls.filter(c=>c[1]?.method==='POST'&&c[0]==='/api/v1/documents')).toHaveLength(2));
  const uploads=fetchMock.mock.calls.filter(c=>c[1]?.method==='POST'&&c[0]==='/api/v1/documents');
  expect(uploads[0][1].headers.get('Idempotency-Key')).toBe(uploads[1][1].headers.get('Idempotency-Key'));
+});
+
+it("labels the server-confirmed local simulation without inventing metrics", async () => {
+  render(<App />);
+  await login("acme", "deterministic");
+  expect(
+    await screen.findByText("Simulated AI — deterministic local demo"),
+  ).toBeInTheDocument();
+  expect(screen.getByText("LOCAL SIMULATION")).toBeInTheDocument();
+  expect(screen.queryByText(/cache hit/i)).not.toBeInTheDocument();
 });

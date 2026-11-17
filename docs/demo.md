@@ -6,7 +6,8 @@ TASK-030.3 supplies isolated infrastructure; TASK-030.4 adds demo-only sessions.
 Demo upload and job tracking contracts are in [the upload guide](demo-uploads.md).
 The React + TypeScript dashboard provides login, tenant-owned document listing,
 authenticated PDF downloads, upload/job tracking and cited queries. See
-[dashboard development](demo-dashboard.md). Simulated provider mode is not implemented.
+[dashboard development](demo-dashboard.md). The opt-in
+[deterministic provider](demo-deterministic.md) runs locally; disabled remains the default.
 **Do not start this stack until explicitly approved.** Commands below are for that
 later approved operation; configuration validation/tests do not start services.
 
@@ -234,5 +235,6 @@ service. Token refresh, revocation and account management are not implemented.
 Passwords require operator setup; there are no default passwords. The frontend
 now uses a same-origin nginx proxy and serves source PDF downloads. Inline PDF
 viewing is not implemented. Upload/job adapters exist
-but admission remains disabled until a simulated provider is separately approved.
+with admission enabled only in explicitly selected deterministic mode.
+See [the deterministic demo guide](demo-deterministic.md) for manual startup.
 No real provider calls, public deployment or hard billing-cap mechanism is supplied.

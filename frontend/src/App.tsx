@@ -201,7 +201,8 @@ function Workspace({
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [service, setService] = useState("Checking service"),
-    [providerOff, setProviderOff] = useState(false);
+    [providerOff, setProviderOff] = useState(false),
+    [simulated, setSimulated] = useState(false);
   const [uploading, setUploading] = useState(false),
     [uploadNote, setUploadNote] = useState(""),
     [question, setQuestion] = useState(""),
@@ -259,7 +260,12 @@ function Workspace({
       credentials: "omit",
     })
       .then((r) => {
-        if (alive.current) setService(r.ok ? "API online" : "API unavailable");
+        if (alive.current) {
+          setService(r.ok ? "API online" : "API unavailable");
+          setSimulated(
+            r.ok && r.headers.get("X-Demo-Provider-Mode") === "deterministic",
+          );
+        }
       })
       .catch(() => {
         if (alive.current) setService("API unavailable");
@@ -488,15 +494,21 @@ function Workspace({
               <strong>
                 {providerOff
                   ? "Provider disabled"
-                  : "A controlled, isolated demo"}
+                  : simulated
+                    ? "Simulated AI — deterministic local demo"
+                    : "A controlled, isolated demo"}
               </strong>
               <p>
                 {providerOff
                   ? "AI queries and ingestion are unavailable. Your documents can still be listed and downloaded."
-                  : "Provider access is disabled by default. AI and ingestion require an explicitly enabled backend; this dashboard never enables them."}
+                  : simulated
+                    ? "Local lexical retrieval and source excerpts. No LLM, external inference, or provider charges. Verify each cited PDF page."
+                    : "Provider access is disabled by default. AI and ingestion require an explicitly enabled backend; this dashboard never enables them."}
               </p>
             </div>
-            <span className="pill">SAFE BY DEFAULT</span>
+            <span className="pill">
+              {simulated && !providerOff ? "LOCAL SIMULATION" : "SAFE BY DEFAULT"}
+            </span>
           </div>
           {error && <Alert text={error} />}
           {tab === "documents" ? (

@@ -1,4 +1,4 @@
-"""Demo job wrapper around existing async ingestion; no provider is enabled here."""
+"""Tenant-owned demo jobs around existing ingestion; availability is mode-gated."""
 import asyncio
 import hashlib
 import os

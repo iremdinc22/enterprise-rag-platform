@@ -1,4 +1,4 @@
-"""Existing API contracts with an offline demo lifecycle and disabled queries."""
+"""Existing API contracts with an isolated disabled/deterministic demo lifecycle."""
 from contextlib import asynccontextmanager
 import sys
 import os
@@ -24,12 +24,20 @@ def build_app(*, login_clock=None, upload_service=None):
         # Dependency rejection occurs before admission, retrieval or cache access.
         raise HTTPException(503, "Demo provider is disabled")
 
-    app.dependency_overrides[get_pipeline] = unavailable
+    if ACTIVE_SETTINGS.provider_mode == "disabled":
+        app.dependency_overrides[get_pipeline] = unavailable
+    app.add_middleware(DemoModeHeader, mode=ACTIVE_SETTINGS.provider_mode)
 
     @asynccontextmanager
     async def lifespan(app):
-        # No eager RAG/reranker load; /ready may lazily create the Qdrant client.
         try:
+            # Fail closed, without migrating or recreating the isolated collection.
+            if ACTIVE_SETTINGS.provider_mode == "deterministic":
+                from src.demo.deterministic import DIMENSIONS
+                from src.vector_store.qdrant_store import get_collection_dimension
+                if await get_collection_dimension() != DIMENSIONS:
+                    raise RuntimeError("Demo collection dimensions incompatible")
+                get_pipeline()
             yield
         finally:
             store = sys.modules.get("src.vector_store.qdrant_store")
@@ -38,3 +46,18 @@ def build_app(*, login_clock=None, upload_service=None):
 
     app.router.lifespan_context = lifespan
     return app
+
+
+class DemoModeHeader:
+    """Same-origin health metadata; no query/session response schema changes."""
+    def __init__(self, app, *, mode):
+        self.app, self.mode = app, mode
+
+    async def __call__(self, scope, receive, send):
+        async def metadata(message):
+            if message["type"] == "http.response.start" and scope.get("path") == "/health":
+                message = dict(message)
+                message["headers"] = [*message.get("headers", []),
+                    (b"x-demo-provider-mode", self.mode.encode("ascii"))]
+            await send(message)
+        return await self.app(scope, receive, metadata)

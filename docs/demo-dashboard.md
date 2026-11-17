@@ -6,6 +6,10 @@ The frontend is React + TypeScript + Vite, with native fetch, Lucide icons,
 Vitest and Testing Library. No frontend secrets or provider integrations exist.
 System fonts and bundled icons avoid external asset requests.
 
+The opt-in [deterministic local RAG mode](demo-deterministic.md) now supports the
+full upload-to-citation workflow without an LLM or external inference provider.
+Disabled remains the default; the checkpoint below records the earlier disabled-mode verification.
+
 ## Development and verification
 
 Use Node 22.17+ (or another supported Node release for the locked Vite version):
@@ -40,8 +44,8 @@ docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.ya
 docker compose --env-file .env.demo --env-file .env.demo.auth -f compose.demo.yaml stop
 ```
 
-These commands are instructions, not evidence of runtime verification for this
-frontend revision. Do not merge Compose files, expose backend ports, or overwrite
+The checkpoint below records the completed disabled-provider runtime verification.
+Future startup still requires explicit approval. Do not merge Compose files, expose backend ports, or overwrite
 existing credentials. The demo frontend has its own multistage build and runs nginx
 as a non-root user on 5173. Only the frontend publishes a loopback port. The nginx
 proxy routes `/api/v1/`, `/health`, and `/ready` to the internal demo API; there are
@@ -92,7 +96,60 @@ for JWT, ownership and quotas. Production build/typecheck, static Compose parsin
 secret/artifact checks and an npm advisory audit are separate checks.
 
 Login layout was visually checked at mobile and desktop widths. The authenticated
-dashboard is exercised by mocked component tests; Docker proxy startup and real
-browser workflows require TASK-030.8. No existing containers were started and no
+dashboard interactions are covered by mocked component tests and the disabled-provider
+Docker/browser checkpoint below. Provider-dependent success paths remain deferred. No existing containers were started and no
 paid calls or data changes were needed. Demo provider activation is out of scope.
 This is a localhost portfolio demo, not a public deployment or a hard billing cap.
+
+## Docker/browser checkpoint — 2026-11-17 (TASK-030.8A)
+
+The dashboard revision committed as `83b8a4245e915d0438a982cf3d95f00110052916`
+was built with the backend and started only as `enterprise-rag-demo`. All five
+services were healthy. nginx configuration validation passed; HTML, JS, CSS,
+`/health` and `/ready` returned 200 through port 18030. Actual container mounts,
+networks and port bindings matched the isolated configuration; backend services
+had no published ports and no OpenAI credential was supplied.
+
+Real browser ACME and GLOBEX logins succeeded. Both initial libraries were empty.
+Account switching returned to a cleared login form and cleared prior question,
+provider-error and document state. Authenticated desktop (1440×960) and mobile
+(390-pixel wide) layouts were visually checked. Browser console inspection
+reported no captured application errors/warnings. Expected 401/404/503 responses
+were checked separately over HTTP; they are not successful provider operations.
+
+One explicitly named synthetic ACME PDF and its isolated document metadata were
+created solely to test source access. The metadata deliberately used `failed`
+status; no ingestion job, worker task or Qdrant point was created, and this was
+not evidence of a failed or successful ingestion run. ACME listed and downloaded
+it; browser download SHA-256 matched the fixture. GLOBEX still had an empty list,
+and foreign-document versus missing-document access returned identical 404s.
+The file, exact metadata key and downloaded test copy were removed after checking
+their identity/hash. No existing corpus document was used as a fixture.
+
+Browser query and upload attempts showed sanitized provider-disabled errors and
+disabled further provider-dependent actions within that session. HTTP checks
+confirmed 503. Demo job keys, active jobs, upload quota entries and broker queue
+remained empty; demo Qdrant point count stayed zero. Signed expired JWT access
+was rejected with 401 through nginx/API. The real 15-minute idle browser timer
+was not waited out: UI expiry/401 clearing remains covered by the fake-clock
+component regression tests, and session responses retained `expires_in=900`.
+
+No application correction was required. Temporary HTTP assertions were updated
+for repeated `Cache-Control`/`X-Content-Type-Options` headers added by nginx and
+the API; their parsed values still contained `no-store`/`nosniff` respectively.
+No secrets or response payloads were included in diagnostic output.
+
+Host verification repeated 19 frontend, 264 backend, 22 generation and 8 retrieval
+tests (313 passes), TypeScript/production build, compilation and all three Compose
+configuration checks. Existing six non-demo RAG containers retained their IDs,
+start times, restart counts, mounts and networks; the four existing private env
+files retained their SHA-256 hashes. Some unrelated containers changed metadata
+independently; no commands targeted them. Existing Qdrant/Redis records were not
+read or written by the runtime tests.
+
+After verification only the five demo services were stopped, preserving all four
+demo volumes and the project networks. Temporary runtime credentials were removed;
+existing credential files were not overwritten. Future startup still requires
+operator-configured passwords as described above. Real ingestion, generated
+answers, citation retrieval and cache behavior remain untested in this disabled
+runtime; they require the separately approved deterministic-provider phase.

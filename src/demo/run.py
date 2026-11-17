@@ -20,6 +20,11 @@ def activate():
     install_disabled_provider()
     os.environ["JWT_SECRET_KEY"] = settings.jwt_secret
     config.ACTIVE_SETTINGS = settings
+    if settings.provider_mode == "deterministic":
+        from src.demo import deterministic
+        os.environ["EMBEDDING_MODEL"] = deterministic.EMBEDDING_MODEL
+        os.environ["GENERATION_MODEL"] = deterministic.GENERATION_MODEL
+        deterministic.install()
     return settings
 
 
@@ -29,8 +34,8 @@ def main():
     args = parser.parse_args()
     try:
         if args.action == "check-config":
-            DemoSettings.from_env()
-            print("Demo configuration valid; provider disabled")
+            settings = DemoSettings.from_env()
+            print("Demo configuration valid; provider " + settings.provider_mode)
             return
         settings = activate()
     except ValueError:

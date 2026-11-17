@@ -20,8 +20,11 @@ class PublishNotSent(RuntimeError):
 
 
 def provider_available():
-    # No enabled provider mode is implemented/approved yet. Tests inject fakes.
-    return False
+    from src.demo.config import ACTIVE_SETTINGS
+    import os
+    return (ACTIVE_SETTINGS is not None and ACTIVE_SETTINGS.provider_mode == "deterministic"
+            and os.getenv("DEMO_ENABLED") == "1"
+            and os.getenv("DEMO_PROVIDER_MODE") == "deterministic")
 
 
 def publish_job(job_id):

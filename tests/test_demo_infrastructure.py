@@ -51,7 +51,7 @@ class DemoConfigurationTests(unittest.TestCase):
             "CELERY_BROKER_URL": ["redis://localhost:6381/0", "redis://redis:6379/1"],
             "REDIS_JOBS_URL": ["redis://redis:6379/0"], "REDIS_CACHE_URL": ["redis://redis:6379/1"],
             "DEMO_UPLOAD_ROOT": ["/app/data", "/demo/uploads/../data", "uploads"],
-            "HF_HOME": ["/app/data"], "DEMO_PROVIDER_MODE": ["openai", "deterministic", ""],
+            "HF_HOME": ["/app/data"], "DEMO_PROVIDER_MODE": ["openai", "Deterministic", ""],
             "DEMO_ENABLED": ["0"], "PYTHON_DOTENV_DISABLED": ["0"],
             "HF_HUB_OFFLINE": ["0"], "TRANSFORMERS_OFFLINE": ["0"], "RAG_TRACING_ENABLED": ["true"],
         }

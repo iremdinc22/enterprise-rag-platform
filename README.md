@@ -90,3 +90,7 @@ require separate deployment design; current pipeline limitations are documented.
 
 The isolated [React dashboard](docs/demo-dashboard.md) provides tenant login, document
 management and cited questions. Provider-dependent actions remain disabled by default.
+
+For a complete zero-provider-cost workflow, explicitly select the
+[deterministic local RAG demo](docs/demo-deterministic.md). It uses real ingestion,
+retrieval and citations with clearly labeled simulated, extractive answers.
